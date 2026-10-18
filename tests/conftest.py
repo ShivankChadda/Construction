@@ -101,7 +101,8 @@ def make_settings(tmp_path, **kw) -> Settings:
     base = dict(
         database_path=str(tmp_path / "t.db"), pdf_dir=str(tmp_path / "pdfs"), backup_dir=str(tmp_path / "backups"),
         signing_key=generate_seed_b64(), public_base_url="https://bot.example.com", google_auth_mode="none",
-        daily_digest_hour=-1, wa_app_secret="", allow_unsigned_webhooks=True,
+        daily_digest_hour=-1, logistics_todo_hour=-1, forward_batch_seconds=0, wa_app_secret="",
+        allow_unsigned_webhooks=True,
     )
     base.update(kw)
     return Settings(_env_file=None, **base)

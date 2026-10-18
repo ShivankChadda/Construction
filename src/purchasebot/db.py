@@ -115,7 +115,8 @@ CREATE TABLE IF NOT EXISTS dispatches (
   created_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'OPEN',  -- OPEN, RECEIVED
   received_at TEXT,
-  received_by TEXT
+  received_by TEXT,
+  reminded_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS dispatch_items (

@@ -29,10 +29,12 @@ When it arrives:
 
 ## Abbas — logistics
 
-**From the group — ग्रुप से**
-- **Forward** every requirement post from the group to the Purchase Desk (long-press → Forward → Purchase Desk). You can select several messages and forward them together.
-  If the message doesn't say which site, the bot asks with three buttons. Check the list it shows, then tap **✅ Confirm**.
+**From the group — ग्रुप से** (once or twice a day — दिन में एक-दो बार)
+- In the group, **long-press one requirement post, tick all the other new ones, then Forward → Purchase Desk**. Text, photos and voice notes can all go together.
+- The bot logs each one under its site and sends you **one summary**. If a post doesn't say which site, tap the site button. Chat and reminders are skipped automatically.
+- Wrong quantity? Send `N12 60 bag`. Not needed? Send `remove N12`.
 - After you post a dispatch in the group (photo of the list + caption like *"Car Nicobar Sector – items handed over to Prem in ship"*), **forward that post too**. The bot reads the items and asks the site to confirm receipt.
+- Every morning you get **today's list**: what each site is waiting for, how many days, and what's approved but not dispatched.
 
 **Purchase slips — in your chat with the bot**
 - `list` — all open requirements by site, with a PDF to take to the market.

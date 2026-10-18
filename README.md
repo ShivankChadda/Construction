@@ -43,27 +43,26 @@ See [`docs/samples/`](docs/samples) for real output from the scripted demo: a pe
 
 ## The "Kailash Material" group stays as it is
 
-**The bot can't be added to the existing group**, not with the official WhatsApp API:
-- Meta's Groups API only works with groups **the business itself creates**, with a **maximum of 8 people**, joined by invite link. It is open only to accounts with Official Business Account status. The existing group can't be connected.
-- A number shared between the WhatsApp Business app and the API ("coexistence") does not pass group messages to the API either.
-- The only way to put a bot inside the existing group is an unofficial WhatsApp-Web connection. See "Why not an unofficial bot" below.
+The group keeps running the company exactly as it does now. The AI works alongside it as a **silent clerk**: it never posts in the group, reads what it is given, keeps the register, and messages only the people who need to act.
 
-So the group stays exactly as it is, and the bot works alongside it:
-
-| Who | What changes |
+| Who | What they do |
 |---|---|
-| Engineers, supervisors | **Nothing.** They keep posting requirements in the group (text, photos, voice notes). Their only new action is tapping **✅ All received** when the Purchase Desk messages them about a dispatch. |
-| Abbas | He **forwards** each requirement post from the group to the Purchase Desk (long-press → Forward). The bot works out the site from the text ("Diglipur site requirements", "Car Nicobar Sector", "C/N") or asks with three buttons. He forwards his own dispatch posts too (photo of the handwritten list + caption), and the bot reads every item, including repaired machines and documents. He writes priced slips in his chat with the bot. |
-| Dad | Priced slips arrive in his own chat with the Purchase Desk, with a PDF. He replies the way he does in the group ("haan", "Abbas do it", "3 nahi"), or taps a button. |
+| Engineers, supervisors | **Nothing new.** They keep posting requirements in the group (text, photos, voice notes). When the Purchase Desk messages them about a dispatch, they tap **✅ All received**. If they forget, they get one reminder after 2 days. |
+| Abbas | Once or twice a day he selects the new requirement posts in the group and **forwards them all at once** to the Purchase Desk. The bot logs each one under the right site and sends **one summary**. Any message that doesn't name a site gets three site buttons; chat and reminders are skipped. He forwards his own dispatch posts the same way. Prices go in his chat with the bot (`N12 Om Traders 420`). Each morning he gets **today's list**: what each site is waiting for, how long, and what's approved but not sent. |
+| Dad | Priced slips with alerts arrive in his chat with the Purchase Desk. He replies as he does in the group ("haan", "Abbas do it", "3 nahi"). Each evening he gets a **site-by-site summary**: what's waiting, what's in transit, shortages, spend. |
 
-**Prices and approvals stay private.** Vendor rates and the approval go to Abbas and Dad only, not to the whole group. This is also why the bot couldn't post slips in the group even if it were there.
+What the AI does with it:
+- reads messy posts, Hindi voice notes and handwritten-list photos into clean items for the right site
+- checks every price against past purchases and flags new vendors, extra quantities and repeat buys
+- matches dispatches to approved items, counts what actually arrived, and keeps site stock
+- keeps the Google Sheet and Drive folder up to date
+- tells each person only what they need to act on
 
-**Why not an unofficial bot inside the group?** It can be done with libraries that link a spare number as a "WhatsApp Web" device. But:
-- It breaks WhatsApp's terms. The number can be banned with no warning and no appeal.
-- Library updates often break when WhatsApp changes its protocol.
-- Buttons don't work on personal WhatsApp.
+**Why can't the bot just sit in the group?** The official WhatsApp API can't join an existing group:
+- Meta's Groups API only covers groups the business number itself creates, up to 8 people, joined by invite link, and only for Official Business Accounts.
+- Business-app "coexistence" numbers don't pass group messages to the API either.
 
-The only thing it would save is Abbas's few forwards a day. That isn't worth putting the approval trail on a number that can vanish overnight.
+A bot inside the group would have to be an unofficial "WhatsApp Web" client on a spare number. That breaks WhatsApp's terms, so the number can be banned without warning. It would also log every member's messages and phone number, so everyone in the group should be told first. It is not built. If you want it, it can be added later as a read-only extra that removes Abbas's forwarding; nothing else in this design would change.
 
 Two more WhatsApp rules:
 - **The bot needs its own phone number** (a new SIM). Save it as "Purchase Desk" in everyone's phone.
@@ -77,7 +76,7 @@ Two more WhatsApp rules:
 pip install -e '.[dev]'
 purchasebot demo            # scripted run: 3 sites → slip → question → partial approval → delivery → stock
 purchasebot simulate        # chat as anyone:  @abbas fwd: Diglipur site requirements -- welding goggles 10 nos   @father ^ yes
-pytest                      # 92 tests
+pytest                      # 97 tests
 ```
 
 Without `ANTHROPIC_API_KEY`, the demo and simulator use a simple offline parser that understands lines like *"cement 50 bags"*. With the key, Claude reads Hinglish, abbreviations, voice transcripts and photos.

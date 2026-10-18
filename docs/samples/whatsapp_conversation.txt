@@ -83,25 +83,25 @@ Father's Full Name ▶ yes
       Done. ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
       The signed slip has gone to logistics.
 
-  ⇢ Father's Full Name  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code YRKT-2GAL-3XA3
+  ⇢ Father's Full Name  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code GDMV-3OD5-MFZJ
 
   ⇢ Abbas
       ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
       Reply: "yes"
       
-      Verification code: *YRKT-2GAL-3XA3*
+      Verification code: *GDMV-3OD5-MFZJ*
       
       Buy only what is approved, from the vendors listed. When loaded, send *dispatch PS-0001 <site> <vessel/vehicle>*.
 
-  ⇢ Abbas  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code YRKT-2GAL-3XA3
+  ⇢ Abbas  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code GDMV-3OD5-MFZJ
 
   ⇢ Shivank
       ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
       Reply: "yes"
       
-      Verification code: *YRKT-2GAL-3XA3*
+      Verification code: *GDMV-3OD5-MFZJ*
 
-  ⇢ Shivank  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code YRKT-2GAL-3XA3
+  ⇢ Shivank  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code GDMV-3OD5-MFZJ
 
   ⇢ Chandramohan
       🧾 *PS-0001* update for Nicobar:
@@ -183,30 +183,17 @@ Abbas ▶ ↪ forwarded from group: Diglipur site requirements --
 3). Welding goggles 10 nos
 
   ⇢ Abbas
-      📋 *Requirement – Diglipur* (draft, not sent yet)
-      _From the group, forwarded by logistics_
+      📥 *Logged from the group* — 1 message
       
-      1. Cement OPC 53 grade — 30 bag
-      2. Gitti 20mm — 4 brass
-      3. Welding goggles — 10 nos
-
-  ⇢ Abbas
-      Is this list correct? You can also just send changes, e.g. "cement 60 bag" or "remove sand".
-      [1] ✅ Confirm
-      [2] ✏️ Change
-      [3] ❌ Cancel
-
-Abbas ▶ [taps ✅ Confirm]
-
-  ⇢ Abbas
-      ✅ Sent to Abbas as *REQ-DIG-0001*.
-      You'll get a message when the material is dispatched.
+      📍 *DIGLIPUR* — REQ-DIG-0001
+      D1 Cement OPC 53 grade — 30 bag
+      D2 Gitti 20mm — 4 brass
+      D3 Welding goggles — 10 nos
+      
+      To fix: *D1 60 bag* (change qty) · *remove D1*
 
   ⇢ Siddhu
-      ℹ️ Abbas logged this requirement from the group for your site:
-      
-      📋 *Requirement – Diglipur* (REQ-DIG-0001)
-      _From the group, forwarded by logistics_
+      ℹ️ Abbas logged these requirements for Diglipur from the group:
       
       D1 Cement OPC 53 grade — 30 bag
       D2 Gitti 20mm — 4 brass
@@ -215,10 +202,7 @@ Abbas ▶ [taps ✅ Confirm]
       If anything is wrong, tell him.
 
   ⇢ Ami
-      ℹ️ Abbas logged this requirement from the group for your site:
-      
-      📋 *Requirement – Diglipur* (REQ-DIG-0001)
-      _From the group, forwarded by logistics_
+      ℹ️ Abbas logged these requirements for Diglipur from the group:
       
       D1 Cement OPC 53 grade — 30 bag
       D2 Gitti 20mm — 4 brass
@@ -393,7 +377,7 @@ Father's Full Name ▶ [taps ✅ Confirm]
       Done. 🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,16,025 of ₹2,45,025
       The signed slip has gone to logistics.
 
-  ⇢ Father's Full Name  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code YS6O-GTDV-2ROE
+  ⇢ Father's Full Name  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code EXJ5-C7WX-4MJZ
 
   ⇢ Abbas
       🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,16,025 of ₹2,45,025
@@ -402,11 +386,11 @@ Father's Full Name ▶ [taps ✅ Confirm]
       Not approved — do *not* buy:
       ❌ 5. Shuttering ply (Sagar Hardware)
       
-      Verification code: *YS6O-GTDV-2ROE*
+      Verification code: *EXJ5-C7WX-4MJZ*
       
       Buy only what is approved, from the vendors listed. When loaded, send *dispatch PS-0002 <site> <vessel/vehicle>*.
 
-  ⇢ Abbas  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code YS6O-GTDV-2ROE
+  ⇢ Abbas  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code EXJ5-C7WX-4MJZ
 
   ⇢ Shivank
       🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,16,025 of ₹2,45,025
@@ -415,9 +399,9 @@ Father's Full Name ▶ [taps ✅ Confirm]
       Not approved — do *not* buy:
       ❌ 5. Shuttering ply (Sagar Hardware)
       
-      Verification code: *YS6O-GTDV-2ROE*
+      Verification code: *EXJ5-C7WX-4MJZ*
 
-  ⇢ Shivank  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code YS6O-GTDV-2ROE
+  ⇢ Shivank  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code EXJ5-C7WX-4MJZ
 
   ⇢ Chandramohan
       🧾 *PS-0002* update for Nicobar:

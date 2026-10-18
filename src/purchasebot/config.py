@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     max_approval_reminders: int = 3
     draft_reminder_minutes: int = 60
     daily_digest_hour: int = 20  # 24h clock, local time; -1 disables
+    logistics_todo_hour: int = 8  # morning to-do list for logistics; -1 disables
+    forward_batch_seconds: int = 90  # quiet time after Abbas's last forward before the summary
+    receipt_reminder_hours: float = 48  # ask the site again if a dispatch isn't confirmed
+    stale_requirement_days: int = 3  # requirements older than this are called out
     scheduler_interval_seconds: int = 300
     allow_unsigned_webhooks: bool = False  # only for local testing
 

@@ -24,7 +24,8 @@ from .config import Settings
 from .db import DB
 from .fmt import inr, lakh, qty
 from .google_sync import GoogleSync, enqueue, process_queue
-from .llm import DISPATCH_WORDS, ParsedDispatchItem, ParsedItem, ParsedSlipLine, ParseError, Parser, norm_key, norm_unit
+from .llm import (DISPATCH_WORDS, UNITS, ParsedDispatchItem, ParsedItem, ParsedSlipLine, ParseError, Parser, ReqParse,
+                  norm_key, norm_unit)
 from .models import APPROVED, DRAFT, PARTIAL, PENDING, REJECTED, Flag, Slip
 from .pdf import render_requirements_pdf, render_slip_pdf
 from .roster import Person, Roster
@@ -63,6 +64,7 @@ class Bot:
         self.gsync = gsync
         self.lock = threading.RLock()
         self._sync_lock = threading.Lock()
+        self._timers: dict[str, threading.Timer] = {}
         clock.set_timezone(settings.timezone)
 
     # ================================================================ entry
@@ -190,6 +192,8 @@ class Bot:
         }.get(p.role, set())
         if action not in role_actions:
             return self._text(p, "That button isn't for you.")
+        if p.role == "logistics" and action != "SITE":
+            self._flush_batch(p.phone)
         if action.startswith("RQ_"):
             return self._req_button(p, action, int(args[0]))
         if action.startswith("SL_"):
@@ -197,7 +201,7 @@ class Bot:
         if action.startswith("GR_"):
             return self._grn_button(p, action, int(args[0]))
         if action == "SITE":
-            return self._site_chosen(p, args[0])
+            return self._site_chosen(p, args[0], args[1] if len(args) > 1 else None)
         slip_id, version = int(args[0]), int(args[1])
         if action == "AP_YES":
             return self._approver_decides(p, slip_id, version, Decision(approval.APPROVE_ALL), "✅ Approve all (button)", msg.wamid)
@@ -351,16 +355,8 @@ class Bot:
         self._submit_requisition(p, req)
 
     def _submit_requisition(self, p: Person, req) -> None:
-        site = self.roster.site(req.site_code)
-        now = clock.now_iso()
-        with self.db.transaction():
-            req_no = f"REQ-{site.code}-{self.db.next_counter(f'req:{site.code}'):04d}"
-            for it in req.items:
-                ref = f"{site.letter}{self.db.next_counter(f'ref:{site.code}')}"
-                self.db.run("UPDATE req_items SET ref = ? WHERE id = ?", (ref, it.id))
-            self.db.run("UPDATE requisitions SET req_no = ?, status = 'SUBMITTED', submitted_at = ?, updated_at = ? WHERE id = ?",
-                        (req_no, now, now, req.id))
-        req = store.load_requisition(self.db, req.id)
+        req = self._assign_numbers(req)
+        req_no = req.req_no
         self.db.audit(p.phone, "req_submit", req_no, items=len(req.items))
         enqueue(self.db, "req", req.id)
         logistics = self.roster.by_role("logistics")
@@ -397,6 +393,8 @@ class Bot:
     # ================================================================ logistics
 
     def _as_logistics(self, p: Person, msg: Incoming) -> None:
+        if not msg.forwarded:
+            self._flush_batch(p.phone)
         state, data = self.db.get_state(p.phone)
         content = self._content(msg) if msg.kind != "text" else Content(msg.text, [], "text")
         text = content.text.strip()
@@ -417,6 +415,8 @@ class Bot:
                 return self._slip_status(p)
             if re.fullmatch(r"(stock|stok)", t):
                 return self._text(p, render.stock_text(store.stock_summary(self.db), self.roster))
+            if self._edit_open_item(p, text):
+                return
         m = re.match(r"^\s*([a-z ]{3,20})\s*:\s*(.+)$", text, re.IGNORECASE | re.DOTALL)
         site = self.roster.find_site(m.group(1)) if m else None
         if site:  # "Nicobar: cement 50 bag"
@@ -432,14 +432,178 @@ class Bot:
             return self._group_requirement(p, content, forwarded=msg.forwarded)
         self._slip_input(p, text)
 
+    # ================================================================ forwarded from the group
+
     def _group_requirement(self, p: Person, content: Content, site_code: str | None = None, forwarded: bool = True) -> None:
         site = self.roster.site(site_code) if site_code else self.roster.find_site_in_text(content.text)
+        if forwarded:
+            return self._log_forwarded(p, content, site)
         if site is None:
             return self._ask_site(p, "req", content, "Which site is this requirement for?")
         engineers = self.roster.engineers_for(site.code)
-        if forwarded:
-            content.source = "group"
         self._requisition_input(p, None, site.code, engineers[0] if engineers else None, content=content)
+
+    def _log_forwarded(self, p: Person, content: Content, site) -> None:
+        """Abbas forwards the day's group posts, often many at once. Each is logged straight away;
+        one summary follows when he stops forwarding, instead of a confirm tap per message."""
+        batch = self._batch(p.phone)
+        preview = (content.text.strip().splitlines() or [""])[0][:60] or {"voice": "(voice note)"}.get(content.source, "(photo)")
+        parsed = self.parser.parse_requisition(content.text, site.name if site else "", store.known_item_keys(self.db),
+                                               None, content.attachments)
+        if not parsed.items:  # chat, reminders, "ok sir"
+            batch["skipped"].append(preview)
+        elif site is None:  # keep what was read; ask for the site in the summary
+            token = f"{self.db.next_counter('stash'):x}"
+            self.db.kv_set(f"stash:{token}", json.dumps({
+                "text": content.text, "source": content.source, "path": content.saved_path, "preview": preview,
+                "needed_by": parsed.needed_by, "urgent": parsed.urgent,
+                "items": [vars(i) for i in parsed.items]}))
+            batch["unassigned"].append(token)
+        else:
+            batch["reqs"].append(self._auto_requisition(p, site.code, content, parsed))
+        self.db.kv_set(f"batch:{p.phone}", json.dumps(batch))
+        self._arm_flush(p.phone)
+
+    def _batch(self, phone: str) -> dict:
+        raw = self.db.kv_get(f"batch:{phone}")
+        return json.loads(raw) if raw else {"reqs": [], "skipped": [], "unassigned": []}
+
+    def _arm_flush(self, phone: str) -> None:
+        if self.s.forward_batch_seconds <= 0:
+            return self._flush_batch(phone)
+        old = self._timers.pop(phone, None)
+        if old:
+            old.cancel()
+
+        def fire():
+            with self.lock:
+                self._flush_batch(phone)
+            self.sync_soon()
+
+        t = threading.Timer(self.s.forward_batch_seconds, fire)
+        t.daemon = True
+        self._timers[phone] = t
+        t.start()
+
+    def flush_batches(self) -> None:
+        with self.lock:
+            for row in self.db.q("SELECT k FROM kv WHERE k LIKE 'batch:%'"):
+                self._flush_batch(row["k"].split(":", 1)[1])
+
+    def _flush_batch(self, phone: str) -> None:
+        t = self._timers.pop(phone, None)
+        if t:
+            t.cancel()
+        batch = self._batch(phone)
+        self.db.run("DELETE FROM kv WHERE k = ?", (f"batch:{phone}",))
+        p = self.roster.person(phone)
+        if p is None or not any(batch.values()):
+            return
+        reqs = [store.load_requisition(self.db, rid) for rid in batch["reqs"]]
+        n_msgs = len(reqs) + len(batch["skipped"]) + len(batch["unassigned"])
+        lines = [f"📥 *Logged from the group* — {n_msgs} message{'s' if n_msgs != 1 else ''}"]
+        by_site: dict[str, list] = {}
+        for r in reqs:
+            by_site.setdefault(r.site_code, []).append(r)
+        for site in self.roster.sites:
+            for r in by_site.get(site.code, []):
+                lines += ["", f"📍 *{site.name.upper()}* — {r.req_no}" + (" 🔴 URGENT" if r.urgent else "")]
+                lines += [f"{it.ref} {it.name} — {qty(it.qty) + ' ' + it.unit if it.qty else 'qty ?'}" for it in r.items]
+        if batch["skipped"]:
+            lines += ["", "⚪ No materials found, not logged: " + "; ".join(f"\"{s}\"" for s in batch["skipped"][:5])]
+        if reqs and reqs[0].items:
+            ref = reqs[0].items[0].ref
+            lines += ["", f"To fix: *{ref} 60 {reqs[0].items[0].unit}* (change qty) · *remove {ref}*"]
+        if reqs or batch["skipped"]:
+            self._text(p, "\n".join(lines))
+        for token in batch["unassigned"]:
+            stash = json.loads(self.db.kv_get(f"stash:{token}") or "{}")
+            self._ask_site_for(p, token, stash.get("preview", ""))
+        # The site's own people see what was logged for them — the check on logistics.
+        for site_code, rs in by_site.items():
+            items = "\n".join(f"{it.ref} {it.name} — {qty(it.qty)} {it.unit}" for r in rs for it in r.items)
+            for e in self.roster.engineers_for(site_code):
+                self._notify(e, f"Requirements logged for {self.roster.site_name(site_code)}", lambda e=e, items=items: self._text(
+                    e, f"ℹ️ {p.name} logged these requirements for {self.roster.site_name(site_code)} from the group:\n\n"
+                       f"{items}\n\nIf anything is wrong, tell him."))
+
+    def _ask_site_for(self, p: Person, token: str, preview: str) -> None:
+        if len(self.roster.sites) <= 3:
+            self._buttons(p, f"Which site is this for?\n_{preview}_", [(f"SITE:{s.code}:{token}", s.name) for s in self.roster.sites])
+        else:
+            self._text(p, f"Which site is this for? Forward it again with the site name.\n_{preview}_")
+
+    def _auto_requisition(self, p: Person, site_code: str, content: Content, parsed) -> int:
+        engineers = self.roster.engineers_for(site_code)
+        req_id = self._insert_requisition(p, site_code, engineers[0] if engineers else None, "group", content, parsed)
+        req = self._assign_numbers(store.load_requisition(self.db, req_id))
+        self.db.audit(p.phone, "req_logged_from_group", req.req_no, items=len(req.items))
+        enqueue(self.db, "req", req.id)
+        return req_id
+
+    def _insert_requisition(self, sender: Person, site_code: str, engineer: Person | None, source: str,
+                            content: Content, parsed) -> int:
+        now = clock.now_iso()
+        with self.db.transaction():
+            req_id = self.db.run(
+                "INSERT INTO requisitions(site_code, engineer_phone, engineer_name, entered_by_phone, status, source, "
+                "raw_text, needed_by, urgent, media_link, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (site_code, engineer.phone if engineer else f"site:{site_code}",
+                 engineer.name if engineer else f"{self.roster.site_name(site_code)} site", sender.phone, DRAFT, source,
+                 content.text, parsed.needed_by, int(parsed.urgent), content.saved_path, now, now))
+            for n, it in enumerate(parsed.items, start=1):
+                self.db.run(
+                    "INSERT INTO req_items(requisition_id, line_no, name, item_key, qty, unit, spec) VALUES (?,?,?,?,?,?,?)",
+                    (req_id, n, it.name, it.item_key or norm_key(it.name), it.qty, norm_unit(it.unit), it.spec))
+        if content.saved_path and self.gsync:
+            enqueue(self.db, "file", f"{content.saved_path}|Originals/{self.roster.site_name(site_code)}/{clock.now().strftime('%Y-%m')}")
+        return req_id
+
+    def _assign_numbers(self, req):
+        site = self.roster.site(req.site_code)
+        now = clock.now_iso()
+        with self.db.transaction():
+            req_no = f"REQ-{site.code}-{self.db.next_counter(f'req:{site.code}'):04d}"
+            for it in req.items:
+                self.db.run("UPDATE req_items SET ref = ? WHERE id = ?", (f"{site.letter}{self.db.next_counter(f'ref:{site.code}')}", it.id))
+            self.db.run("UPDATE requisitions SET req_no = ?, status = 'SUBMITTED', submitted_at = ?, updated_at = ? WHERE id = ?",
+                        (req_no, now, now, req.id))
+        return store.load_requisition(self.db, req.id)
+
+    def _edit_open_item(self, p: Person, text: str) -> bool:
+        """'remove N12' / 'N12 60 bag' — fix what was logged, before it goes on a slip."""
+        letters = "".join(s.letter for s in self.roster.sites)
+        draft_id = store.draft_slip_id(self.db, p.phone)
+        if draft_id:  # while drafting a slip, refs in a message are slip edits
+            on_slip = {l.ref for l in store.load_slip(self.db, draft_id).lines if l.ref}
+            if on_slip & {r.upper() for r in re.findall(rf"[{letters}]\d+", text, re.IGNORECASE)}:
+                return False
+        m = re.fullmatch(rf"\s*(?:remove|cancel|delete|hatao)\s+((?:[{letters}]\d+[\s,]*)+)", text, re.IGNORECASE)
+        if m:
+            refs = [r.upper() for r in re.findall(rf"[{letters}]\d+", m.group(1), re.IGNORECASE)]
+            done = []
+            for ref in refs:
+                it = store.item_by_ref(self.db, ref)
+                if it and it["status"] == "OPEN":
+                    self.db.run("UPDATE req_items SET status = 'CANCELLED' WHERE id = ?", (it["id"],))
+                    enqueue(self.db, "req", it["requisition_id"])
+                    done.append(f"{ref} {it['name']}")
+            self.db.audit(p.phone, "req_items_cancel", ",".join(refs))
+            self._text(p, ("🗑 Removed: " + ", ".join(done)) if done else "Nothing removed — those refs are not open.")
+            return True
+        units = "|".join(sorted({*UNITS, "bags", "nos", "pcs", "ton", "tons", "kgs"}, key=len, reverse=True))
+        m = re.fullmatch(rf"\s*([{letters}]\d+)\s+(?:qty\s*)?(\d+(?:\.\d+)?)\s*({units})\.?\s*", text, re.IGNORECASE)
+        if m:
+            it = store.item_by_ref(self.db, m.group(1).upper())
+            if not it or it["status"] != "OPEN":
+                self._text(p, f"{m.group(1).upper()} is not an open requirement.")
+                return True
+            self.db.run("UPDATE req_items SET qty = ?, unit = ? WHERE id = ?", (float(m.group(2)), norm_unit(m.group(3)), it["id"]))
+            enqueue(self.db, "req", it["requisition_id"])
+            self.db.audit(p.phone, "req_item_edit", it["ref"], qty=float(m.group(2)), unit=m.group(3))
+            self._text(p, f"✏️ {it['ref']} {it['name']} — now {m.group(2)} {norm_unit(m.group(3))}.")
+            return True
+        return False
 
     def _ask_site(self, p: Person, kind: str, content: Content, question: str) -> None:
         mime = content.attachments[0][1] if content.attachments else ""
@@ -451,7 +615,19 @@ class Bot:
         else:
             self._text(p, f"{question} Reply with the site name.\n_{preview}_")
 
-    def _site_chosen(self, p: Person, site_code: str) -> None:
+    def _site_chosen(self, p: Person, site_code: str, token: str | None = None) -> None:
+        if token is not None:  # a forwarded message that named no site
+            raw = self.db.kv_get(f"stash:{token}")
+            self.db.run("DELETE FROM kv WHERE k = ?", (f"stash:{token}",))
+            if not raw or not self.roster.site(site_code):
+                return self._text(p, "Already done.")
+            data = json.loads(raw)
+            parsed = ReqParse(items=[ParsedItem(**i) for i in data["items"]], needed_by=data["needed_by"], urgent=data["urgent"])
+            content = Content(data["text"], [], data["source"], "", data.get("path", ""))
+            batch = self._batch(p.phone)
+            batch["reqs"].append(self._auto_requisition(p, site_code, content, parsed))
+            self.db.kv_set(f"batch:{p.phone}", json.dumps(batch))
+            return self._flush_batch(p.phone)
         state, data = self.db.get_state(p.phone)
         self.db.set_state(p.phone, "")
         if state != "AWAIT_SITE" or not self.roster.site(site_code):
@@ -1179,7 +1355,10 @@ class Bot:
             now = clock.now()
             self._approval_reminders(now)
             self._draft_reminders(now)
+            self._receipt_reminders(now)
             self._daily(now)
+            for row in self.db.q("SELECT k FROM kv WHERE k LIKE 'batch:%'"):  # in case a timer was lost in a restart
+                self._flush_batch(row["k"].split(":", 1)[1])
         if self.gsync is not None:
             with self._sync_lock:
                 process_queue(self.db, self.gsync, self.roster)
@@ -1225,11 +1404,68 @@ class Bot:
                 enqueue(self.db, "file", f"{dest}|Backups")
             for old in sorted(Path(self.s.backup_dir).glob("purchasebot-*.db"))[:-30]:
                 old.unlink(missing_ok=True)
+        if 0 <= self.s.logistics_todo_hour <= now.hour and self.db.kv_get("last_todo") != today:
+            self.db.kv_set("last_todo", today)
+            todo = self._todo_text(now)
+            if todo:
+                for l in self.roster.by_role("logistics"):
+                    self._notify(l, "Today's purchase to-do list", lambda l=l: self._text(l, todo))
         if 0 <= self.s.daily_digest_hour <= now.hour and self.db.kv_get("last_digest") != today:
             self.db.kv_set("last_digest", today)
+            sites = self._site_status(now)
             decided_today = self.db.one("SELECT COUNT(*) AS n FROM slips WHERE decided_at >= ?", (today,))["n"]
-            pending = store.pending_slips(self.db)
-            if decided_today or pending:
-                body = "🌙 *Daily summary*\n" + self._report()
+            if decided_today or store.pending_slips(self.db) or sites:
+                body = "🌙 *Daily summary*\n" + (sites + "\n\n" if sites else "") + self._report()
                 for who in self.roster.by_role("approver") + self.roster.by_role("observer"):
                     self._notify(who, "Daily purchase summary", lambda who=who: self._text(who, body))
+
+    def _site_status(self, now) -> str:
+        """Per site: what's waiting and for how long. Empty when nothing is open."""
+        out = []
+        for site in self.roster.sites:
+            items = [i for i in store.open_items(self.db) if i["site_code"] == site.code]
+            waiting = store.undispatched_lines(self.db, site.code)
+            in_transit = store.open_dispatches(self.db, site.code)
+            if not (items or waiting or in_transit):
+                continue
+            parts = []
+            if items:
+                oldest = max((now - clock.parse(i["submitted_at"])).days for i in items)
+                parts.append(f"{len(items)} requested, no slip yet" + (f" (oldest {oldest}d)" if oldest else ""))
+            if waiting:
+                parts.append(f"{len(waiting)} approved, not sent")
+            if in_transit:
+                parts.append(f"{len(in_transit)} dispatch{'es' if len(in_transit) != 1 else ''} not confirmed")
+            out.append(f"📍 {site.name}: " + " · ".join(parts))
+        return ("*Sites*\n" + "\n".join(out)) if out else ""
+
+    def _todo_text(self, now) -> str:
+        lines = []
+        stale = timedelta(days=self.s.stale_requirement_days)
+        for site in self.roster.sites:
+            items = [i for i in store.open_items(self.db) if i["site_code"] == site.code]
+            if items:
+                lines += ["", f"📍 *{site.name.upper()}* — {len(items)} to buy"]
+                for i in items[:12]:
+                    age = now - clock.parse(i["submitted_at"])
+                    tag = f" ⏰ {age.days}d" if age >= stale else ""
+                    tag += " 🔴" if i["urgent"] else ""
+                    lines.append(f"{i['ref']} {i['name']} — {qty(i['qty'])} {i['unit']}{tag}")
+        waiting = [l for s in self.roster.sites for l in store.undispatched_lines(self.db, s.code)]
+        if waiting:
+            lines += ["", f"🧾 *Approved, not dispatched:* {len(waiting)} line(s) — " +
+                      ", ".join(sorted({l['slip_no'] for l in waiting}))]
+        unconfirmed = [d for s in self.roster.sites for d in store.open_dispatches(self.db, s.code)]
+        if unconfirmed:
+            lines += ["", "🚚 *Sent, site hasn't confirmed:* " + ", ".join(
+                f"{d.dispatch_no} {self.roster.site_name(d.site_code)} ({(now - clock.parse(d.created_at)).days}d)" for d in unconfirmed)]
+        pending = store.pending_slips(self.db)
+        if pending:
+            lines += ["", "⏳ *Waiting for approval:* " + ", ".join(f"{s.slip_no} {inr(s.total)}" for s in pending)]
+        return ("☀️ *Today's list*" + "\n".join([""] + lines)) if lines else ""
+
+    def _receipt_reminders(self, now) -> None:
+        due = (now - timedelta(hours=self.s.receipt_reminder_hours)).isoformat(timespec="seconds")
+        for row in self.db.q("SELECT id FROM dispatches WHERE status = 'OPEN' AND reminded_at IS NULL AND created_at <= ?", (due,)):
+            self.db.run("UPDATE dispatches SET reminded_at = ? WHERE id = ?", (now.isoformat(timespec="seconds"), row["id"]))
+            self._send_receipt_card(store.load_dispatch(self.db, row["id"]))

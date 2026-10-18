@@ -132,7 +132,8 @@ class Harness:
         settings = get_settings()
         base = out_dir or Path(db_path).parent
         overrides = {"pdf_dir": str(base / "pdfs"), "backup_dir": str(base / "backups"),
-                     "signing_key_path": str(base / "signing.key"), "google_auth_mode": "none"}
+                     "signing_key_path": str(base / "signing.key"), "google_auth_mode": "none",
+                     "forward_batch_seconds": 0}
         settings = settings.model_copy(update=overrides)
         self.echo = echo
         self.wa = FakeWhatsApp()
@@ -285,7 +286,6 @@ def demo(out: Path) -> None:
     echo("\n(Diglipur posts in the 'Kailash Material' group as usual; Abbas forwards it to the bot)")
     h.say(abbas, "Diglipur site requirements --\n1). Cement OPC 53 grade 30 bag\n2). Gitti 20mm 4 brass\n3). Welding goggles 10 nos",
           forwarded=True)
-    h.tap(abbas, 1)
 
     clock.freeze(t0 + timedelta(days=8, hours=2))
     h.say(abbas, "list")
