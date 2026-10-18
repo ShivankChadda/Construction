@@ -42,6 +42,7 @@ class Incoming:
     context_id: str = ""  # wamid of the message this one replies to (quoted)
     profile_name: str = ""
     timestamp: str = ""
+    forwarded: bool = False  # forwarded from another chat, e.g. the site group
 
 
 class WhatsApp(Protocol):
@@ -77,6 +78,8 @@ def parse_webhook(payload: dict) -> list[Incoming]:
                     context_id=(m.get("context") or {}).get("id", ""),
                     profile_name=names.get(m.get("from"), ""),
                     timestamp=m.get("timestamp", ""),
+                    forwarded=bool((m.get("context") or {}).get("forwarded")
+                                   or (m.get("context") or {}).get("frequently_forwarded")),
                 )
                 t = m.get("type")
                 if t == "text":

@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from . import clock
 from .db import DB
-from .models import Flag, ReqItem, Requisition, Slip, SlipLine
+from .models import Dispatch, DispatchItem, Flag, ReqItem, Requisition, Slip, SlipLine
 
 
 def load_requisition(db: DB, req_id: int) -> Requisition | None:
@@ -98,7 +98,7 @@ def open_items(db: DB) -> list[dict]:
         for r in db.q(
             "SELECT ri.id, ri.ref, ri.name, ri.item_key, ri.qty, ri.unit, ri.spec, r.site_code, r.req_no, "
             "r.engineer_name, r.urgent, r.needed_by, r.submitted_at, "
-            "CASE WHEN r.entered_by_phone != r.engineer_phone THEN 1 ELSE 0 END AS by_logistics "
+            "CASE WHEN r.entered_by_phone != r.engineer_phone AND r.source != 'group' THEN 1 ELSE 0 END AS by_logistics "
             "FROM req_items ri JOIN requisitions r ON r.id = ri.requisition_id "
             "WHERE ri.status = 'OPEN' AND r.status = 'SUBMITTED' ORDER BY r.site_code, ri.id"
         )
@@ -108,7 +108,7 @@ def open_items(db: DB) -> list[dict]:
 def item_by_ref(db: DB, ref: str) -> dict | None:
     r = db.one(
         "SELECT ri.*, r.site_code, r.req_no, r.status AS req_status, "
-        "CASE WHEN r.entered_by_phone != r.engineer_phone THEN 1 ELSE 0 END AS by_logistics "
+        "CASE WHEN r.entered_by_phone != r.engineer_phone AND r.source != 'group' THEN 1 ELSE 0 END AS by_logistics "
         "FROM req_items ri JOIN requisitions r ON r.id = ri.requisition_id WHERE UPPER(ri.ref) = UPPER(?)",
         (ref,),
     )
@@ -147,6 +147,40 @@ def recent_purchase(db: DB, item_key: str, site_code: str, days: int, exclude_sl
         (item_key, site_code, since, exclude_slip or -1),
     )
     return dict(r) if r else None
+
+
+def load_dispatch(db: DB, dispatch_id: int) -> Dispatch | None:
+    d = db.one("SELECT * FROM dispatches WHERE id = ?", (dispatch_id,))
+    if not d:
+        return None
+    items = [
+        DispatchItem(id=i["id"], line_no=i["line_no"], name=i["name"], item_key=i["item_key"], qty=i["qty"],
+                     unit=i["unit"], slip_line_id=i["slip_line_id"], slip_no=i["slip_no"],
+                     stock_item=bool(i["stock_item"]), received_qty=i["received_qty"])
+        for i in db.q(
+            "SELECT di.*, s.slip_no FROM dispatch_items di LEFT JOIN slip_lines sl ON sl.id = di.slip_line_id "
+            "LEFT JOIN slips s ON s.id = sl.slip_id WHERE di.dispatch_id = ? ORDER BY di.line_no", (dispatch_id,))
+    ]
+    return Dispatch(id=d["id"], dispatch_no=d["dispatch_no"], site_code=d["site_code"], carrier=d["carrier"],
+                    note=d["note"], created_by=d["created_by"], created_at=d["created_at"], status=d["status"],
+                    received_at=d["received_at"], received_by=d["received_by"], items=items)
+
+
+def open_dispatches(db: DB, site_code: str) -> list[Dispatch]:
+    return [load_dispatch(db, r["id"]) for r in
+            db.q("SELECT id FROM dispatches WHERE site_code = ? AND status = 'OPEN' ORDER BY id", (site_code,))]
+
+
+def undispatched_lines(db: DB, site_code: str, slip_id: int | None = None) -> list[dict]:
+    """Approved slip lines for a site that haven't been sent yet."""
+    sql = ("SELECT sl.id, sl.name, sl.item_key, sl.qty, sl.unit, sl.vendor, s.slip_no FROM slip_lines sl "
+           "JOIN slips s ON s.id = sl.slip_id WHERE sl.site_code = ? AND sl.status = 'APPROVED' "
+           "AND sl.received_qty IS NULL AND NOT EXISTS (SELECT 1 FROM dispatch_items di WHERE di.slip_line_id = sl.id)")
+    params: list = [site_code]
+    if slip_id is not None:
+        sql += " AND s.id = ?"
+        params.append(slip_id)
+    return [dict(r) for r in db.q(sql + " ORDER BY sl.id", params)]
 
 
 def stock_summary(db: DB, site_code: str | None = None) -> list[dict]:

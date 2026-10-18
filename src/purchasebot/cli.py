@@ -165,15 +165,16 @@ class Harness:
     def _wamid(self) -> str:
         return f"wamid.in.{next(self._ids)}"
 
-    def say(self, name: str, text: str, quote_last: bool = False):
+    def say(self, name: str, text: str, quote_last: bool = False, forwarded: bool = False):
         from .whatsapp import Incoming
 
         p = self.person(name)
-        self.echo(f"\n{p.name} ▶ {text}")
+        self.echo(f"\n{p.name} ▶ {'↪ forwarded from group: ' if forwarded else ''}{text}")
         ctx = ""
         if quote_last:
             ctx = next((s.wamid for s in reversed(self.wa.to(p.phone)) if s.kind in ("text", "buttons")), "")
-        self.bot.handle(Incoming(wamid=self._wamid(), phone=p.phone, kind="text", text=text, context_id=ctx))
+        self.bot.handle(Incoming(wamid=self._wamid(), phone=p.phone, kind="text", text=text, context_id=ctx,
+                                 forwarded=forwarded))
 
     def voice(self, name: str, transcript: str):
         from .whatsapp import Incoming
@@ -201,6 +202,7 @@ def simulate(db_path: str) -> None:
           "  @name ^ message      same, but as a reply to the last message they got\n"
           "  @name #2             tap button 2 on the last button message they got\n"
           "  @name !voice text    send a voice note whose transcript is 'text'\n"
+          "  @name fwd: text      forward a message from the group (e.g. @abbas fwd: Diglipur site requirements ...)\n"
           "  /who  /tick  /quit")
     for p in h.roster.people:
         print(f"    {p.role:9} {p.name}")
@@ -232,6 +234,8 @@ def simulate(db_path: str) -> None:
                 h.voice(name, rest[7:])
             elif rest.startswith("^"):
                 h.say(name, rest[1:].strip(), quote_last=True)
+            elif rest.lower().startswith("fwd:"):
+                h.say(name, rest[4:].strip().replace("\\n", "\n"), forwarded=True)
             else:
                 h.say(name, rest)
         except (SystemExit, AssertionError, IndexError) as e:
@@ -278,13 +282,15 @@ def demo(out: Path) -> None:
     h.tap(eng_n, 1)
     h.say(eng_k, "binding wire 25 kg\nshuttering ply 20 sheet")
     h.tap(eng_k, 1)
-    h.voice(eng_d, "cement OPC 53 grade 30 bag, gitti 20mm 4 brass, urgent")
-    h.tap(eng_d, 1)
+    echo("\n(Diglipur posts in the 'Kailash Material' group as usual; Abbas forwards it to the bot)")
+    h.say(abbas, "Diglipur site requirements --\n1). Cement OPC 53 grade 30 bag\n2). Gitti 20mm 4 brass\n3). Welding goggles 10 nos",
+          forwarded=True)
+    h.tap(abbas, 1)
 
     clock.freeze(t0 + timedelta(days=8, hours=2))
     h.say(abbas, "list")
     h.say(abbas, "N2 Om Traders 420\nN3 Hira Metals 62000\nN4 Om Traders 9500\nK1 Hira Metals 85\n"
-                 "K2 Sagar Hardware 1450\nD1 Om Traders 420\nD2 Om Traders 6500")
+                 "K2 Sagar Hardware 1450\nD1 Om Traders 420\nD2 Om Traders 6500\nD3 Om Traders 180")
     h.tap(abbas, 1)
 
     clock.freeze(t0 + timedelta(days=8, hours=3))
@@ -296,10 +302,14 @@ def demo(out: Path) -> None:
     clock.freeze(t0 + timedelta(days=9))
     h.say(abbas, "dispatch PS-0002 Nicobar MV Campbell Bay")
     h.say(abbas, "dispatch PS-0002 Kamorta MV Swaraj Dweep")
+    echo("\n(Abbas forwards his usual dispatch post from the group)")
+    h.say(abbas, "Diglipur Sector - Cement, gitti and welding goggles loaded in Anand Bus AN01F3868 departed today at "
+                 "10.00 AM. Bus will be parked near BD BAR. Transportation not paid.", forwarded=True)
     clock.freeze(t0 + timedelta(days=11))
     h.tap(eng_n, 2)
     h.say(eng_n, "3-2")
     h.tap(eng_k, 1)
+    h.tap(eng_d, 1)
     h.say(eng_n, "used 10 bag cement")
     h.say(eng_n, "stock")
     h.say(boss, "report")

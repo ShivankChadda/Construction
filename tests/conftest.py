@@ -54,11 +54,17 @@ class Chat:
     def wamid(self) -> str:
         return f"wamid.in.{next(self._ids)}"
 
-    def say(self, who: str, text: str, quote=None, wamid=None) -> str:
+    def say(self, who: str, text: str, quote=None, wamid=None, forwarded=False) -> str:
         wamid = wamid or self.wamid()
         ctx = quote.wamid if quote is not None else ""
-        self.bot.handle(Incoming(wamid=wamid, phone=PHONES[who], kind="text", text=text, context_id=ctx))
+        self.bot.handle(Incoming(wamid=wamid, phone=PHONES[who], kind="text", text=text, context_id=ctx, forwarded=forwarded))
         return wamid
+
+    def photo(self, who: str, caption: str = "", data: bytes = b"\xff\xd8jpeg", forwarded=False) -> None:
+        media = f"m{next(self._ids)}"
+        self.wa.media[media] = (data, "image/jpeg")
+        self.bot.handle(Incoming(wamid=self.wamid(), phone=PHONES[who], kind="image", media_id=media, mime="image/jpeg",
+                                 text=caption, forwarded=forwarded))
 
     def voice(self, who: str, transcript: str, quote=None) -> None:
         media = f"m{next(self._ids)}"

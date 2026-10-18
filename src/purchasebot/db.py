@@ -103,6 +103,34 @@ CREATE TABLE IF NOT EXISTS slip_lines (
   received_by TEXT
 );
 
+CREATE TABLE IF NOT EXISTS dispatches (
+  id INTEGER PRIMARY KEY,
+  dispatch_no TEXT UNIQUE,
+  site_code TEXT NOT NULL,
+  carrier TEXT NOT NULL DEFAULT '',  -- "Prem, by ship", "Anand Bus AN01F3868"
+  note TEXT NOT NULL DEFAULT '',     -- collection point, freight paid or not
+  raw_text TEXT NOT NULL DEFAULT '',
+  media_link TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'OPEN',  -- OPEN, RECEIVED
+  received_at TEXT,
+  received_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS dispatch_items (
+  id INTEGER PRIMARY KEY,
+  dispatch_id INTEGER NOT NULL REFERENCES dispatches(id),
+  line_no INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  item_key TEXT NOT NULL,
+  qty REAL NOT NULL,
+  unit TEXT NOT NULL,
+  slip_line_id INTEGER REFERENCES slip_lines(id),  -- NULL for things not bought on a slip
+  stock_item INTEGER NOT NULL DEFAULT 1,           -- 0 for documents, cards, repaired machines
+  received_qty REAL
+);
+
 CREATE TABLE IF NOT EXISTS outbound (
   wamid TEXT PRIMARY KEY,
   to_phone TEXT NOT NULL,

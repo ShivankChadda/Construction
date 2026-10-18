@@ -82,9 +82,10 @@ Why not a service account? Google service accounts have no Drive storage of thei
 ## 6. First day
 
 1. Ask each person to send **hi** to the bot number. They get their own help message, and this also opens the 24-hour window.
-2. Run one real requirement end to end with Abbas sitting next to you.
-3. Open the Google Sheet and check the rows.
-4. Scan the QR code on the first signed slip with a phone.
+2. Tell the group that nothing changes for them: keep posting in *Kailash Material*. Abbas forwards requirements and his dispatch posts to the Purchase Desk, and engineers tap "All received" when the bot asks.
+3. Run one real requirement end to end with Abbas sitting next to you: forward a group post, make the slip, get Dad's "haan", forward the dispatch post.
+4. Open the Google Sheet and check the rows.
+5. Scan the QR code on the first signed slip with a phone.
 
 ## Changing people or vendors
 

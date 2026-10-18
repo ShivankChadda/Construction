@@ -21,7 +21,7 @@ from .config import Settings
 from .db import DB
 from .fmt import qty as fmt_qty
 from .roster import Roster
-from .store import load_requisition, load_slip, stock_summary
+from .store import load_dispatch, load_requisition, load_slip, stock_summary
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +36,10 @@ TABS: dict[str, list[str]] = {
     "Requisitions": [
         "Key", "Req No", "Line", "Ref", "Site", "Engineer", "Entered By", "Item", "Qty", "Unit", "Spec",
         "Item Status", "Req Status", "Source", "Urgent", "Needed By", "Submitted",
+    ],
+    "Dispatches": [
+        "Key", "Dispatch No", "Line", "Site", "Item", "Qty", "Unit", "Slip", "Stock Item", "Carrier", "Note",
+        "Sent By", "Sent At", "Status", "Received Qty", "Received By", "Received At",
     ],
     "Stock Ledger": ["Key", "Date", "Site", "Item", "Qty", "Unit", "Type", "Ref", "By", "Note"],
     "Stock Summary": ["Site", "Item", "Qty", "Unit", "Last Movement"],
@@ -76,6 +80,7 @@ class GoogleSync:
         self.root = settings.google_drive_root_folder_id
         self.sheet_id = settings.google_sheet_id
         self._folders: dict[tuple[str, str], str] = {}
+        self._tabs_checked = False
 
     # ---------- setup ----------
     @classmethod
@@ -128,6 +133,20 @@ class GoogleSync:
         return f["webViewLink"]
 
     # ---------- sheets ----------
+    def ensure_tabs(self) -> None:
+        """Add tabs introduced after the sheet was created (once per process)."""
+        if self._tabs_checked:
+            return
+        meta = self.sheets.spreadsheets().get(spreadsheetId=self.sheet_id, fields="sheets.properties.title").execute()
+        have = {s["properties"]["title"] for s in meta.get("sheets", [])}
+        missing = [t for t in TABS if t not in have]
+        if missing:
+            self.sheets.spreadsheets().batchUpdate(spreadsheetId=self.sheet_id, body={"requests": [
+                {"addSheet": {"properties": {"title": t, "gridProperties": {"frozenRowCount": 1}}}} for t in missing]}).execute()
+            for t in missing:
+                self._write(t, "A1", [TABS[t]])
+        self._tabs_checked = True
+
     def _write(self, tab: str, a1: str, rows: list[list]) -> None:
         self.sheets.spreadsheets().values().update(
             spreadsheetId=self.sheet_id, range=f"'{tab}'!{a1}", valueInputOption="USER_ENTERED", body={"values": rows}
@@ -137,6 +156,7 @@ class GoogleSync:
         """Rows keyed by column A. Existing keys are overwritten in place; new keys are appended."""
         if not rows:
             return
+        self.ensure_tabs()
         keys = self.sheets.spreadsheets().values().get(spreadsheetId=self.sheet_id, range=f"'{tab}'!A:A").execute()
         index = {r[0]: i + 1 for i, r in enumerate(keys.get("values", [])) if r}
         updates, appends = [], []
@@ -231,6 +251,18 @@ def _run_job(db: DB, sync: GoogleSync, roster: Roster, kind: str, key: str) -> N
             [roster.site_name(s["site_code"]), s["name"], s["qty"], s["unit"], clock.fmt(s["last_at"])]
             for s in stock_summary(db)
         ])
+    elif kind == "dispatch":
+        d = load_dispatch(db, int(key))
+        if d is None:
+            return
+        by = roster.person(d.created_by)
+        rcv = roster.person(d.received_by or "")
+        sync.upsert("Dispatches", [[
+            f"{d.dispatch_no}#{i.line_no}", d.dispatch_no, i.line_no, roster.site_name(d.site_code), i.name, i.qty, i.unit,
+            i.slip_no or "", "yes" if i.stock_item else "no", d.carrier, d.note, by.name if by else d.created_by,
+            clock.fmt(d.created_at), d.status, i.received_qty if i.received_qty is not None else "",
+            rcv.name if rcv else "", clock.fmt(d.received_at) if d.received_at else "",
+        ] for i in d.items])
     elif kind == "audit":
         r = db.one("SELECT * FROM audit WHERE id = ?", (int(key),))
         if r is None:

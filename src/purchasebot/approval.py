@@ -26,7 +26,7 @@ AMBIGUOUS = "AMBIGUOUS"  # looks like a decision but can't be read safely; ask a
 
 APPROVE_WORDS = {
     "yes", "y", "yep", "yeah", "ok", "okay", "okk", "k", "approve", "approved", "approval",
-    "go", "goahead", "proceed", "confirm", "confirmed", "done", "fine", "sure", "accept",
+    "go", "goahead", "doit", "proceed", "confirm", "confirmed", "done", "fine", "sure", "accept",
     "haan", "han", "haa", "ha", "hanji", "haanji", "ji", "theek", "thik", "theekhai", "thikhai",
     "sahi", "chalega", "kardo", "karo", "lelo", "le", "kharido", "manjoor", "manzoor",
     "हाँ", "हां", "हा", "ठीक", "जी", "करो", "लेलो", "मंजूर",
@@ -57,7 +57,7 @@ class Decision:
 
 def _tokens(text: str) -> list[str]:
     t = unicodedata.normalize("NFC", text.lower())
-    t = t.replace("go ahead", "goahead").replace("theek hai", "theekhai").replace("thik hai", "thikhai")
+    t = t.replace("go ahead", "goahead").replace("do it", "doit").replace("theek hai", "theekhai").replace("thik hai", "thikhai")
     t = t.replace("ठीक है", "ठीक").replace("mat karo", "matkaro").replace("haan ji", "haanji")
     t = re.sub(r"\bkar\s+(do|lo|dijiye|dena)\b", "kardo", t)
     t = re.sub(r"\ble\s+(lo|lijiye|lena)\b", "lelo", t)

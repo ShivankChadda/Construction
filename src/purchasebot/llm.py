@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 UNITS = [
     "bag", "kg", "mt", "ton", "quintal", "nos", "pcs", "cft", "cum", "brass", "sqft", "sqm", "rft", "m",
-    "litre", "box", "roll", "bundle", "set", "load", "truck", "drum", "packet", "sheet", "length", "pair", "lot",
+    "litre", "box", "roll", "bundle", "set", "load", "truck", "drum", "packet", "sheet", "length", "pair", "lot", "g",
 ]
 _UNIT_ALIASES = {
     "bags": "bag", "bori": "bag", "katta": "bag", "kgs": "kg", "kilo": "kg", "tonne": "mt", "tons": "mt",
@@ -31,6 +31,7 @@ _UNIT_ALIASES = {
     "meter": "m", "metre": "m", "meters": "m", "mtr": "m", "feet": "rft", "ft": "rft", "trucks": "truck",
     "loads": "load", "boxes": "box", "rolls": "roll", "bundles": "bundle", "sets": "set", "drums": "drum",
     "sheets": "sheet", "packets": "packet", "pkt": "packet", "tractor": "load", "trolley": "load",
+    "gram": "g", "grams": "g", "gm": "g", "gms": "g", "gram.": "g",
 }
 
 
@@ -85,6 +86,24 @@ class SlipParse:
 
 
 @dataclass
+class ParsedDispatchItem:
+    name: str
+    item_key: str
+    qty: float
+    unit: str
+    slip_line_id: int = 0  # approved slip line this is, 0 if none
+    stock_item: bool = True
+
+
+@dataclass
+class DispatchParse:
+    carrier: str
+    note: str
+    items: list[ParsedDispatchItem]
+    unclear: list[str] = field(default_factory=list)
+
+
+@dataclass
 class QtyLine:
     line_no: int
     qty: float
@@ -103,6 +122,8 @@ class Parser(Protocol):
                           current: list[ParsedItem] | None = None, images: list[tuple[bytes, str]] | None = None) -> ReqParse: ...
     def parse_slip(self, text: str, open_items: list[dict], vendors: list[str], sites: list[tuple[str, str]],
                    known_items: list[str], current: list[ParsedSlipLine] | None = None) -> SlipParse: ...
+    def parse_dispatch(self, text: str, open_lines: list[dict],
+                       images: list[tuple[bytes, str]] | None = None) -> DispatchParse: ...
     def parse_receipt(self, text: str, lines: list[dict]) -> list[QtyLine]: ...
     def parse_usage(self, text: str, stock_items: list[dict]) -> list[UsageItem]: ...
 
@@ -118,7 +139,7 @@ Extract every material, tool or consumable requested.
 - unit: one of bag, kg, mt, quintal, nos, pcs, cft, cum, brass, sqft, sqm, rft, m, litre, box, roll, bundle, set, load, truck, drum, packet, sheet, length, pair, lot. Convert words: bori/katta=bag, ton/tonne=mt, piece=pcs.
 - spec: extra detail that doesn't belong in the name (brand preference, colour, length), else "".
 Common Hindi terms: sariya/saria = TMT bar, gitti/rodi = stone aggregate, balu/reti = sand, eent = brick, patthar = stone, kil = nails, taar = wire, rang = paint, plywood/ply = shuttering plywood, pipe = PVC/GI pipe (keep as said).
-- unclear: lines you could not turn into an item (quote them briefly). Greetings and chit-chat are not unclear lines; ignore them.
+- unclear: lines you could not turn into an item (quote them briefly). Greetings, chit-chat and headings like "Diglipur site requirements" are not unclear lines; ignore them.
 - needed_by: the date or timing mentioned ("by Monday", "next ship"), else "".
 - urgent: true only if the message says urgent/jaldi/emergency/ASAP.
 - note: "" for a new list.
@@ -141,6 +162,17 @@ For each line:
 - note: "" for a new slip.
 
 When CURRENT SLIP is given, the note edits it (change rate/vendor/qty, add or remove lines). Return the complete updated list of lines and summarise the change in note."""
+
+_DISPATCH_SYSTEM = """The logistics manager of a construction company in the Andaman & Nicobar Islands reports a dispatch to a site: a caption, and often a photo of a handwritten list of what was sent (or a photo of the parcel / vehicle).
+
+Extract:
+- carrier: who or what carries it, e.g. "Prem, by ship", "Anand Bus AN01F3868". "" if not said.
+- note: anything the site must know to collect it: collection point, timing, freight paid or not paid. "" if nothing.
+- items: everything sent. name (clear English, keep size/spec), item_key (short lowercase key), qty (0 if not stated), unit (nos, kg, gram, bag, packet, set, mt, litre, sheet, m, ...).
+  slip_line_id: if the item is clearly one of APPROVED LINES AWAITING DISPATCH, that line's id, else 0. Never match two items to one line.
+  stock_item: false for documents, drawings, attendance cards, letters, repaired or returned machines, personal items; true for materials, consumables and tools the site keeps in stock.
+  If the photo shows only a parcel or vehicle, take the items from the caption.
+- unclear: list entries you could not read."""
 
 _RECEIPT_SYSTEM = """A site engineer is reporting what was actually delivered against a list of dispatched lines (numbered). For each line he mentions, return the quantity received. "ok"/"received"/"aa gaya" for a line means the full quantity; "nahi aaya"/"not received" means 0. Lines he does not mention: omit them."""
 
@@ -193,6 +225,29 @@ SLIP_SCHEMA = {
         "note": {"type": "string"},
     },
     "required": ["lines", "unclear", "note"],
+    "additionalProperties": False,
+}
+DISPATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "carrier": {"type": "string"},
+        "note": {"type": "string"},
+        "items": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "item_key": {"type": "string"},
+                "qty": {"type": "number"},
+                "unit": {"type": "string"},
+                "slip_line_id": {"type": "integer"},
+                "stock_item": {"type": "boolean"},
+            },
+            "required": ["name", "item_key", "qty", "unit", "slip_line_id", "stock_item"],
+            "additionalProperties": False,
+        }},
+        "unclear": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["carrier", "note", "items", "unclear"],
     "additionalProperties": False,
 }
 RECEIPT_SCHEMA = {
@@ -307,6 +362,24 @@ class ClaudeParser:
             unclear=d["unclear"], note=d["note"],
         )
 
+    def parse_dispatch(self, text, open_lines, images=None):
+        listing = "\n".join(f"{l['id']} | {l['name']} | {l['qty']:g} {l['unit']} | {l['slip_no']}" for l in open_lines) or "(none)"
+        content: list[dict] = []
+        for data, mime in images or []:
+            block = "document" if mime == "application/pdf" else "image"
+            content.append({"type": block, "source": {"type": "base64", "media_type": mime,
+                                                      "data": base64.standard_b64encode(data).decode()}})
+        content.append({"type": "text", "text": f"APPROVED LINES AWAITING DISPATCH:\n{listing}\n\nCAPTION:\n{text or '(none)'}"})
+        d = self._call(_DISPATCH_SYSTEM, content, DISPATCH_SCHEMA)
+        return DispatchParse(
+            carrier=d["carrier"].strip(), note=d["note"].strip(),
+            items=[ParsedDispatchItem(name=i["name"].strip(), item_key=norm_key(i["item_key"]) or norm_key(i["name"]),
+                                      qty=max(0.0, float(i["qty"])), unit=norm_unit(i["unit"]),
+                                      slip_line_id=int(i["slip_line_id"]), stock_item=bool(i["stock_item"]))
+                   for i in d["items"] if i["name"].strip()],
+            unclear=d["unclear"],
+        )
+
     def parse_receipt(self, text, lines):
         listing = "\n".join(f"{l['line_no']}. {l['name']} - dispatched {l['qty']:g} {l['unit']}" for l in lines)
         d = self._call(_RECEIPT_SYSTEM, [{"type": "text", "text": f"DISPATCHED LINES:\n{listing}\n\nENGINEER SAYS:\n{text}"}], RECEIPT_SCHEMA)
@@ -335,8 +408,18 @@ _SLIP_LINE = re.compile(
 )
 
 
+# Words that mark a logistics message as a dispatch report ("Car Nicobar Sector - items handed over to Prem").
+DISPATCH_WORDS = re.compile(r"\b(dispatch(?:ed)?|loaded|handed over|by hand|departed|shipped|sector)\b", re.IGNORECASE)
+# Caption lines (carrier, collection notes) that are not items.
+_CAPTION_WORDS = re.compile(
+    r"\b(dispatch(?:ed)?|loaded|handed over|by hand|departed|shipped|sector|in ship|by ship|bus|vessel|"
+    r"transportation|freight|parked|collect(?:ion)?)\b", re.IGNORECASE)
+
+
 def _split_lines(text: str) -> list[str]:
-    return [p.strip() for p in re.split(r"[\n;]|,(?!\d)", text) if p.strip()]
+    # drop list numbering like "1)." or "2." (but not "2.5 mt")
+    parts = [re.sub(r"^\s*\d+\s*[.)]+\s*(?=[^\d\s])", "", p) for p in re.split(r"[\n;]|,(?!\d)", text)]
+    return [p.strip() for p in parts if p.strip()]
 
 
 class RuleParser:
@@ -356,6 +439,8 @@ class RuleParser:
                 if len(items) == before:
                     unclear.append(line)
                 continue
+            if re.search(r"requirement|required|list\b", low) and not re.search(r"\d", low):
+                continue  # a heading like "Diglipur site requirements --"
             m = _QTY_FIRST.match(line) or _ITEM_LINE.match(line)
             if not m:
                 if not re.fullmatch(r"(?:(?:hi|hello|namaste|sir|ji|ok|thanks|thank you|urgent|jaldi)[ .!,]*)+", low):
@@ -398,6 +483,29 @@ class RuleParser:
                                             item_key=it["item_key"], qty=it["qty"], unit=it["unit"],
                                             vendor=known, rate=rate))
         return SlipParse(lines=lines, unclear=unclear, note="slip updated" if current else "")
+
+    def parse_dispatch(self, text, open_lines, images=None):
+        m = re.search(r"(?:handed over to|by hand of|loaded in|sent with|sent by|through)\s+(.+?)(?=\s+departed|\s+travelling|[,\n]|\.\s|$)",
+                      text, re.IGNORECASE)
+        carrier = m.group(1).strip() if m else ""
+        note = ". ".join(s.strip() for s in re.findall(r"[^.\n]*(?:collect|parked|freight|transportation)[^.\n]*", text, re.IGNORECASE))
+        listing = "\n".join(l for l in text.splitlines() if not _CAPTION_WORDS.search(l))
+        req = self.parse_requisition(listing, "", [])
+        items = [ParsedDispatchItem(i.name, i.item_key, i.qty, i.unit) for i in req.items]
+        if not items:  # "Cement and gitti loaded in bus": take the approved lines the caption names
+            low = text.lower()
+            items = [ParsedDispatchItem(l["name"], l["item_key"], l["qty"], l["unit"], l["id"]) for l in open_lines
+                     if any(w in low for w in l["item_key"].split() if len(w) > 3)]
+        used: set[int] = set()
+        for it in items:
+            if it.slip_line_id:
+                used.add(it.slip_line_id)
+                continue
+            match = next((l for l in open_lines if l["id"] not in used and (l["item_key"] in it.item_key or it.item_key in l["item_key"])), None)
+            if match:
+                it.slip_line_id = match["id"]
+                used.add(match["id"])
+        return DispatchParse(carrier=carrier, note=note, items=items)
 
     def parse_receipt(self, text, lines):
         out = []

@@ -24,7 +24,7 @@ from .config import Settings
 from .db import DB
 from .fmt import inr, lakh, qty
 from .google_sync import GoogleSync, enqueue, process_queue
-from .llm import ParsedItem, ParsedSlipLine, ParseError, Parser, norm_key, norm_unit
+from .llm import DISPATCH_WORDS, ParsedDispatchItem, ParsedItem, ParsedSlipLine, ParseError, Parser, norm_key, norm_unit
 from .models import APPROVED, DRAFT, PARTIAL, PENDING, REJECTED, Flag, Slip
 from .pdf import render_requirements_pdf, render_slip_pdf
 from .roster import Person, Roster
@@ -185,7 +185,7 @@ class Bot:
             return self._show_pending(p)
         role_actions = {
             "engineer": {"RQ_OK", "RQ_EDIT", "RQ_X", "GR_ALL", "GR_SHORT"},
-            "logistics": {"RQ_OK", "RQ_EDIT", "RQ_X", "SL_SEND", "SL_EDIT", "SL_X"},
+            "logistics": {"RQ_OK", "RQ_EDIT", "RQ_X", "SL_SEND", "SL_EDIT", "SL_X", "SITE"},
             "approver": {"AP_YES", "AP_NO", "AP_ASK", "AP_PYES", "AP_PNO"},
         }.get(p.role, set())
         if action not in role_actions:
@@ -195,7 +195,9 @@ class Bot:
         if action.startswith("SL_"):
             return self._slip_button(p, action, int(args[0]))
         if action.startswith("GR_"):
-            return self._grn_button(p, action, int(args[0]), args[1])
+            return self._grn_button(p, action, int(args[0]))
+        if action == "SITE":
+            return self._site_chosen(p, args[0])
         slip_id, version = int(args[0]), int(args[1])
         if action == "AP_YES":
             return self._approver_decides(p, slip_id, version, Decision(approval.APPROVE_ALL), "✅ Approve all (button)", msg.wamid)
@@ -227,10 +229,10 @@ class Bot:
             self.db.audit(p.phone, "query_reply", slip.slip_no, text=text)
             self._text(p, f"Sent to {', '.join(a.name for a in self.roster.by_role('approver'))}.")
             return True
-        if p.role == "engineer" and ob["kind"] == "grn" and entity.startswith("grn:"):
-            _, sid, site = entity.split(":")
-            if site == p.site:
-                self._grn_detail(p, msg, {"slip_id": int(sid), "site": site})
+        if p.role == "engineer" and ob["kind"] == "grn" and entity.startswith("dsp:"):
+            d = store.load_dispatch(self.db, int(entity.split(":")[1]))
+            if d and d.site_code == p.site and d.status == "OPEN":
+                self._grn_detail(p, msg, {"dispatch_id": d.id})
                 return True
         return False
 
@@ -275,7 +277,7 @@ class Bot:
                 return self._deliveries_due(p)
         self._requisition_input(p, msg, p.site, p)
 
-    def _requisition_input(self, sender: Person, msg: Incoming, site_code: str, engineer: Person | None,
+    def _requisition_input(self, sender: Person, msg: Incoming | None, site_code: str, engineer: Person | None,
                            content: Content | None = None) -> None:
         content = content or self._content(msg)
         eng_phone = engineer.phone if engineer else f"site:{site_code}"
@@ -373,9 +375,11 @@ class Bot:
                          lambda l=l: self._text(l, f"📥 *New requirement {who}*\n\n{card}\n\nReply *list* to see all open items.",
                                                 kind="req", entity=f"req:{req.id}"))
         if req.entered_by_logistics:
+            how = "logged this requirement from the group" if req.source == "group" else "entered this requirement"
             for e in self.roster.engineers_for(req.site_code):
-                self._notify(e, f"Requirement {req_no} entered for your site",
-                             lambda e=e: self._text(e, f"ℹ️ {p.name} entered this requirement for your site:\n\n{card}"))
+                self._notify(e, f"Requirement {req_no} logged for your site",
+                             lambda e=e: self._text(e, f"ℹ️ {p.name} {how} for your site:\n\n{card}\n\n"
+                                                       "If anything is wrong, tell him."))
 
     def _engineer_status(self, p: Person) -> None:
         rows = self.db.q(
@@ -393,29 +397,72 @@ class Bot:
     # ================================================================ logistics
 
     def _as_logistics(self, p: Person, msg: Incoming) -> None:
-        content = self._content(msg) if msg.kind != "text" else None
-        text = (content.text if content else msg.text).strip()
+        state, data = self.db.get_state(p.phone)
+        content = self._content(msg) if msg.kind != "text" else Content(msg.text, [], "text")
+        text = content.text.strip()
         t = text.lower()
+        if state == "AWAIT_SITE":
+            site = self.roster.find_site(t)
+            if site:
+                return self._site_chosen(p, site.code)
+            self.db.set_state(p.phone, "")
+        if msg.kind == "text" and not msg.forwarded:
+            if re.fullmatch(r"(list|open|pending|items|requirements?)( pdf)?", t):
+                return self._open_list(p)
+            if re.match(r"^(dispatch|dispatched|shipped|sent|loaded)\b", t) and approval.find_slip_number(t):
+                return self._dispatch_command(p, text)
+            if re.match(r"^(edit|change|revise|withdraw)\b", t) and approval.find_slip_number(t):
+                return self._withdraw_slip(p, approval.find_slip_number(t))
+            if re.fullmatch(r"(slips|status)", t):
+                return self._slip_status(p)
+            if re.fullmatch(r"(stock|stok)", t):
+                return self._text(p, render.stock_text(store.stock_summary(self.db), self.roster))
         m = re.match(r"^\s*([a-z ]{3,20})\s*:\s*(.+)$", text, re.IGNORECASE | re.DOTALL)
         site = self.roster.find_site(m.group(1)) if m else None
-        if site:
-            engineers = self.roster.engineers_for(site.code)
-            body = Content(m.group(2), content.attachments if content else [], content.source if content else "text",
-                           heard=content.heard if content else "", saved_path=content.saved_path if content else "")
-            return self._requisition_input(p, msg, site.code, engineers[0] if engineers else None, content=body)
-        if content and content.source == "image" and not store.draft_slip_id(self.db, p.phone):
-            raise UserError("Is this a site's requirement list? Send the photo again with a caption like *Nicobar:*")
-        if re.fullmatch(r"(list|open|pending|items|requirements?)( pdf)?", t):
-            return self._open_list(p)
-        if re.match(r"^(dispatch|dispatched|shipped|sent|loaded)\b", t):
-            return self._dispatch(p, text)
-        if re.match(r"^(edit|change|revise|withdraw)\b", t) and approval.find_slip_number(t):
-            return self._withdraw_slip(p, approval.find_slip_number(t))
-        if re.fullmatch(r"(slips|status)", t):
-            return self._slip_status(p)
-        if re.fullmatch(r"(stock|stok)", t):
-            return self._text(p, render.stock_text(store.stock_summary(self.db), self.roster))
+        if site:  # "Nicobar: cement 50 bag"
+            body = Content(m.group(2), content.attachments, content.source, content.heard, content.saved_path)
+            return self._group_requirement(p, body, site.code, forwarded=msg.forwarded)
+        letters = "".join(s.letter for s in self.roster.sites)
+        has_refs = bool(re.search(rf"\b[{letters}]\d{{1,5}}\b", text, re.IGNORECASE))
+        # His dispatch posts from the group: "Car Nicobar Sector - items handed over to Prem…"
+        if DISPATCH_WORDS.search(text) and not has_refs:
+            return self._dispatch_report(p, content)
+        # Anything forwarded from the group, and photos of lists, are site requirements.
+        if msg.forwarded or (content.source == "image" and not store.draft_slip_id(self.db, p.phone)):
+            return self._group_requirement(p, content, forwarded=msg.forwarded)
         self._slip_input(p, text)
+
+    def _group_requirement(self, p: Person, content: Content, site_code: str | None = None, forwarded: bool = True) -> None:
+        site = self.roster.site(site_code) if site_code else self.roster.find_site_in_text(content.text)
+        if site is None:
+            return self._ask_site(p, "req", content, "Which site is this requirement for?")
+        engineers = self.roster.engineers_for(site.code)
+        if forwarded:
+            content.source = "group"
+        self._requisition_input(p, None, site.code, engineers[0] if engineers else None, content=content)
+
+    def _ask_site(self, p: Person, kind: str, content: Content, question: str) -> None:
+        mime = content.attachments[0][1] if content.attachments else ""
+        self.db.set_state(p.phone, "AWAIT_SITE", {"kind": kind, "text": content.text, "source": content.source,
+                                                  "heard": content.heard, "path": content.saved_path, "mime": mime})
+        preview = content.text.strip().splitlines()[0][:80] if content.text.strip() else "(photo)"
+        if len(self.roster.sites) <= 3:
+            self._buttons(p, f"{question}\n_{preview}_", [(f"SITE:{s.code}", s.name) for s in self.roster.sites])
+        else:
+            self._text(p, f"{question} Reply with the site name.\n_{preview}_")
+
+    def _site_chosen(self, p: Person, site_code: str) -> None:
+        state, data = self.db.get_state(p.phone)
+        self.db.set_state(p.phone, "")
+        if state != "AWAIT_SITE" or not self.roster.site(site_code):
+            return self._text(p, "That question has expired. Please forward the message again.")
+        attachments = []
+        if data.get("path") and data.get("mime") and Path(data["path"]).exists():
+            attachments = [(Path(data["path"]).read_bytes(), data["mime"])]
+        content = Content(data["text"], attachments, data["source"], data.get("heard", ""), data.get("path", ""))
+        if data["kind"] == "dispatch":
+            return self._dispatch_report(p, content, site_code)
+        self._group_requirement(p, content, site_code, forwarded=data["source"] == "group")
 
     def _open_list(self, p: Person) -> None:
         items = store.open_items(self.db)
@@ -890,133 +937,180 @@ class Bot:
 
     # ================================================================ dispatch & delivery
 
-    def _dispatch(self, p: Person, text: str) -> None:
+    def _dispatch_command(self, p: Person, text: str) -> None:
+        """'dispatch PS-42 Nicobar MV Campbell Bay': send a slip's approved lines."""
         number = approval.find_slip_number(text)
         if number is None:
-            return self._text(p, "Which slip? e.g. *dispatch PS-42 Nicobar MV Campbell Bay*")
+            return self._text(p, "Which slip? e.g. *dispatch PS-42 Nicobar MV Campbell Bay* — or just forward your "
+                                 "dispatch photo with its caption.")
         slip = store.slip_by_number(self.db, number)
         if slip is None or slip.status not in (APPROVED, PARTIAL):
             return self._text(p, f"PS-{number:04d} is not an approved slip.")
         rest = re.sub(r"^\s*\w+\s*", "", approval.strip_slip_ref(text))
         words = rest.split()
         site = self.roster.find_site(words[0]) if words else None
-        note = " ".join(words[1:] if site else words)
-        sites = [site.code] if site else slip.sites()
-        now = clock.now_iso()
-        sent_any = False
-        for sc in sites:
-            lines = [l for l in slip.lines_for_site(sc) if l.status == "APPROVED" and l.received_qty is None]
-            if not lines:
-                continue
-            sent_any = True
-            for l in lines:
-                self.db.run("UPDATE slip_lines SET dispatched_at = ?, dispatch_note = ? WHERE id = ?", (now, note, l.id))
-            fresh = store.load_slip(self.db, slip.id)
-            self._send_grn_card(fresh, sc, note)
-        if not sent_any:
+        carrier = " ".join(words[1:] if site else words)
+        made = []
+        for sc in ([site.code] if site else slip.sites()):
+            lines = store.undispatched_lines(self.db, sc, slip.id)
+            if lines:
+                items = [ParsedDispatchItem(l["name"], l["item_key"], l["qty"], l["unit"], l["id"]) for l in lines]
+                made.append(self._create_dispatch(p, sc, carrier, "", text, items, ""))
+        if not made:
             return self._text(p, f"Nothing left to dispatch on {slip.slip_no}" + (f" for {site.name}" if site else "") + ".")
-        self.db.audit(p.phone, "dispatch", slip.slip_no, sites=sites, note=note)
-        enqueue(self.db, "slip", slip.id)
-        names = ", ".join(self.roster.site_name(s) for s in sites)
-        self._text(p, f"🚚 {slip.slip_no} marked dispatched to {names}. The site will confirm delivery.")
+        names = ", ".join(f"{d.dispatch_no} → {self.roster.site_name(d.site_code)}" for d in made)
+        self._text(p, f"🚚 {slip.slip_no} dispatched: {names}. The site will confirm delivery.")
 
-    def _send_grn_card(self, slip: Slip, site_code: str, note: str = "") -> None:
-        lines = [l for l in slip.lines_for_site(site_code) if l.status == "APPROVED" and l.received_qty is None]
-        if not lines:
-            return
-        entity = f"grn:{slip.id}:{site_code}"
-        for e in self.roster.engineers_for(site_code):
+    def _dispatch_report(self, p: Person, content: Content, site_code: str | None = None) -> None:
+        """Abbas's usual report: photo of the handwritten list (or parcel/bus) + caption with carrier."""
+        site = self.roster.site(site_code) if site_code else self.roster.find_site_in_text(content.text)
+        if site is None:
+            return self._ask_site(p, "dispatch", content, "Which site is this dispatch for?")
+        open_lines = store.undispatched_lines(self.db, site.code)
+        parsed = self.parser.parse_dispatch(content.text, open_lines, content.attachments)
+        if not parsed.items:
+            return self._text(p, "I couldn't find the items in that dispatch report. Add them to the caption "
+                                 "(e.g. \"cement 30 bag, gitti 4 brass\") or send a clearer photo of the list.")
+        valid = {l["id"] for l in open_lines}
+        used: set[int] = set()
+        for it in parsed.items:
+            if it.slip_line_id not in valid or it.slip_line_id in used:
+                it.slip_line_id = 0
+            used.add(it.slip_line_id)
+        d = self._create_dispatch(p, site.code, parsed.carrier, parsed.note, content.text, parsed.items, content.saved_path)
+        on_slip = [i for i in d.items if i.slip_line_id]
+        summary = (f"🚚 Logged *{d.dispatch_no}* → {self.roster.site_name(site.code)}: {len(d.items)} item(s)"
+                   + (f" via {d.carrier}" if d.carrier else "") + ".")
+        if on_slip:
+            summary += f"\n{len(on_slip)} matched to approved slips ({', '.join(sorted({i.slip_no for i in on_slip}))})."
+        if parsed.unclear:
+            summary += "\n❓ Couldn't read: " + "; ".join(parsed.unclear[:5])
+        people = ", ".join(e.name for e in self.roster.engineers_for(site.code)) or "the site"
+        self._text(p, summary + f"\n{people} will confirm what arrives.")
+
+    def _create_dispatch(self, p: Person, site_code: str, carrier: str, note: str, raw: str,
+                         items: list[ParsedDispatchItem], media: str):
+        now = clock.now_iso()
+        with self.db.transaction():
+            no = f"DSP-{self.db.next_counter('dispatch'):04d}"
+            did = self.db.run(
+                "INSERT INTO dispatches(dispatch_no, site_code, carrier, note, raw_text, media_link, created_by, created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)", (no, site_code, carrier, note, raw, media, p.phone, now))
+            for n, it in enumerate(items, start=1):
+                self.db.run(
+                    "INSERT INTO dispatch_items(dispatch_id, line_no, name, item_key, qty, unit, slip_line_id, stock_item) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
+                    (did, n, it.name, it.item_key or norm_key(it.name), it.qty, norm_unit(it.unit),
+                     it.slip_line_id or None, int(it.stock_item)))
+                if it.slip_line_id:
+                    self.db.run("UPDATE slip_lines SET dispatched_at = ?, dispatch_note = ? WHERE id = ?",
+                                (now, carrier, it.slip_line_id))
+        d = store.load_dispatch(self.db, did)
+        self.db.audit(p.phone, "dispatch", no, site=site_code, carrier=carrier, items=len(items))
+        enqueue(self.db, "dispatch", did)
+        if media and self.gsync:
+            enqueue(self.db, "file", f"{media}|Dispatches/{clock.now().strftime('%Y-%m')}")
+        self._send_receipt_card(d)
+        return d
+
+    def _send_receipt_card(self, d, to: list[Person] | None = None) -> None:
+        entity = f"dsp:{d.id}"
+        for e in to if to is not None else self.roster.engineers_for(d.site_code):
             def send(e=e):
-                self._text(e, render.grn_text(slip, site_code, lines, self.roster, note), kind="grn", entity=entity)
-                self._buttons(e, f"{slip.slip_no}: did everything arrive?",
-                              [(f"GR_ALL:{slip.id}:{site_code}", "✅ All received"),
-                               (f"GR_SHORT:{slip.id}:{site_code}", "⚠️ Short/damaged")], kind="grn", entity=entity)
-            self._notify(e, f"Material dispatched to your site ({slip.slip_no})", send)
+                self._text(e, render.dispatch_text(d, self.roster), kind="grn", entity=entity)
+                self._buttons(e, f"{d.dispatch_no}: did everything arrive?",
+                              [(f"GR_ALL:{d.id}", "✅ All received"), (f"GR_SHORT:{d.id}", "⚠️ Short/damaged")],
+                              kind="grn", entity=entity)
+            self._notify(e, f"Material dispatched to your site ({d.dispatch_no})", send)
 
     def _deliveries_due(self, p: Person, quiet: bool = False) -> None:
-        rows = self.db.q(
-            "SELECT DISTINCT s.id FROM slips s JOIN slip_lines sl ON sl.slip_id = s.id WHERE sl.site_code = ? "
-            "AND sl.status = 'APPROVED' AND sl.received_qty IS NULL ORDER BY s.id", (p.site,))
-        if not rows:
+        open_d = store.open_dispatches(self.db, p.site)
+        waiting = store.undispatched_lines(self.db, p.site)
+        if not open_d and not waiting:
             if not quiet:
                 self._text(p, "No deliveries due for your site.")
             return
-        for r in rows:
-            slip = store.load_slip(self.db, r["id"])
-            lines = [l for l in slip.lines_for_site(p.site) if l.status == "APPROVED" and l.received_qty is None]
-            note = lines[0].dispatch_note or ("dispatched " + clock.fmt(lines[0].dispatched_at) if lines[0].dispatched_at else "not dispatched yet")
-            entity = f"grn:{slip.id}:{p.site}"
-            self._text(p, render.grn_text(slip, p.site, lines, self.roster, note), kind="grn", entity=entity)
-            self._buttons(p, f"{slip.slip_no}: did everything arrive?",
-                          [(f"GR_ALL:{slip.id}:{p.site}", "✅ All received"), (f"GR_SHORT:{slip.id}:{p.site}", "⚠️ Short/damaged")],
-                          kind="grn", entity=entity)
+        for d in open_d:
+            self._send_receipt_card(d, to=[p])
+        if waiting:
+            listing = "\n".join(f"• {l['name']} — {qty(l['qty'])} {l['unit']} ({l['slip_no']})" for l in waiting[:15])
+            self._text(p, f"🧾 Approved but not dispatched yet:\n{listing}")
 
-    def _grn_button(self, p: Person, action: str, slip_id: int, site: str) -> None:
-        if site != p.site:
+    def _grn_button(self, p: Person, action: str, dispatch_id: int) -> None:
+        d = store.load_dispatch(self.db, dispatch_id)
+        if d is None or d.site_code != p.site:
             return self._text(p, "That delivery is for another site.")
-        slip = store.load_slip(self.db, slip_id)
-        lines = [l for l in slip.lines_for_site(site) if l.status == "APPROVED" and l.received_qty is None]
-        if not lines:
-            return self._text(p, f"{slip.slip_no} is already fully recorded for your site. Thank you.")
+        if d.status != "OPEN":
+            who = self.roster.person(d.received_by or "")
+            return self._text(p, f"{d.dispatch_no} is already recorded" + (f" by {who.name}" if who else "") + ". Thank you.")
         if action == "GR_ALL":
-            return self._record_receipt(p, slip, site, {l.line_no: l.qty for l in lines}, "all received")
-        self.db.set_state(p.phone, "GRN_DETAIL", {"slip_id": slip_id, "site": site})
-        listing = "\n".join(f"{i}. {l.name} — {qty(l.qty)} {l.unit}" for i, l in enumerate(lines, start=1))
-        self._text(p, f"Tell me what actually came for {slip.slip_no}:\n{listing}\n\n"
+            return self._record_receipt(p, d, {i.line_no: i.qty for i in d.items}, "all received")
+        self.db.set_state(p.phone, "GRN_DETAIL", {"dispatch_id": dispatch_id})
+        listing = "\n".join(f"{i.line_no}. {i.name} — {qty(i.qty)} {i.unit}" for i in d.items)
+        self._text(p, f"Tell me what actually came for {d.dispatch_no}:\n{listing}\n\n"
                       "Reply like *1-45, 3-0* (line – qty received), or in words: \"cement 45 bag aaya, sand nahi aaya\".\n"
                       "_Lines you don't mention are counted as fully received._")
 
     def _grn_detail(self, p: Person, msg: Incoming, data: dict) -> None:
         self.db.set_state(p.phone, "")
-        slip = store.load_slip(self.db, data["slip_id"])
-        lines = [l for l in slip.lines_for_site(data["site"]) if l.status == "APPROVED" and l.received_qty is None]
-        if not lines:
-            return self._text(p, f"{slip.slip_no} is already recorded for your site.")
+        d = store.load_dispatch(self.db, data["dispatch_id"])
+        if d is None or d.status != "OPEN":
+            return self._text(p, "That delivery is already recorded.")
         text = self._content(msg).text if msg.kind != "text" else msg.text
-        local = [{"line_no": i, "name": l.name, "qty": l.qty, "unit": l.unit} for i, l in enumerate(lines, start=1)]
+        local = [{"line_no": i.line_no, "name": i.name, "qty": i.qty, "unit": i.unit} for i in d.items]
         reported = self.parser.parse_receipt(text, local)
         if not reported:
             return self._text(p, "I couldn't match that to the lines, so nothing was recorded. Tap *Short/damaged* again "
                                  "and reply like *1-45, 3-0* (line – qty received), or tap *All received*.")
-        got = {l.line_no: l.qty for l in lines}
+        got = {i.line_no: i.qty for i in d.items}
         for r in reported:
-            if 1 <= r.line_no <= len(lines):
-                got[lines[r.line_no - 1].line_no] = r.qty
-        self._record_receipt(p, slip, data["site"], got, text)
+            if r.line_no in got:
+                got[r.line_no] = r.qty
+        self._record_receipt(p, d, got, text)
 
-    def _record_receipt(self, p: Person, slip: Slip, site: str, got: dict[int, float], text: str) -> None:
+    def _record_receipt(self, p: Person, d, got: dict[int, float], text: str) -> None:
         now = clock.now_iso()
         short = []
         ledger_ids = []
+        slip_ids = set()
         with self.db.transaction():
-            for l in slip.lines_for_site(site):
-                if l.line_no not in got:
-                    continue
-                q = got[l.line_no]
-                self.db.run("UPDATE slip_lines SET received_qty = ?, received_at = ?, received_by = ? WHERE id = ?",
-                            (q, now, p.phone, l.id))
-                if q > 0:
+            for it in d.items:
+                q = got.get(it.line_no, it.qty)
+                self.db.run("UPDATE dispatch_items SET received_qty = ? WHERE id = ?", (q, it.id))
+                if it.slip_line_id:
+                    self.db.run(
+                        "UPDATE slip_lines SET received_qty = (SELECT SUM(received_qty) FROM dispatch_items WHERE slip_line_id = ?), "
+                        "received_at = ?, received_by = ? WHERE id = ?", (it.slip_line_id, now, p.phone, it.slip_line_id))
+                    slip_ids.add(self.db.one("SELECT slip_id FROM slip_lines WHERE id = ?", (it.slip_line_id,))["slip_id"])
+                if q > 0 and it.stock_item:
                     ledger_ids.append(self.db.run(
                         "INSERT INTO stock_ledger(site_code, item_key, name, unit, qty, kind, ref, by_phone, note, created_at) "
                         "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                        (site, l.item_key, l.name, l.unit, q, "RECEIVED", slip.slip_no, p.phone, l.vendor, now)))
-                if q + 1e-9 < l.qty:
-                    short.append((l, q))
-        self.db.audit(p.phone, "receipt", slip.slip_no, site=site, received=got, text=text)
-        enqueue(self.db, "slip", slip.id)
+                        (d.site_code, it.item_key, it.name, it.unit, q, "RECEIVED",
+                         f"{d.dispatch_no}" + (f" / {it.slip_no}" if it.slip_no else ""), p.phone, d.carrier, now)))
+                if q + 1e-9 < it.qty:
+                    short.append((it, q))
+            self.db.run("UPDATE dispatches SET status = 'RECEIVED', received_at = ?, received_by = ? WHERE id = ?",
+                        (now, p.phone, d.id))
+        self.db.audit(p.phone, "receipt", d.dispatch_no, received=got, text=text)
+        enqueue(self.db, "dispatch", d.id)
+        for sid in slip_ids:
+            enqueue(self.db, "slip", sid)
         for lid in ledger_ids:
             enqueue(self.db, "ledger", lid)
-        site_name = self.roster.site_name(site)
+        site_name = self.roster.site_name(d.site_code)
         if short:
-            lines = "\n".join(f"• {l.name}: got {qty(q)} of {qty(l.qty)} {l.unit} ({l.vendor})" for l, q in short)
-            alert = f"⚠️ *Short delivery at {site_name}* — {slip.slip_no}\n{lines}\nReported by {p.name}."
+            lines = "\n".join(f"• {it.name}: got {qty(q)} of {qty(it.qty)} {it.unit}" + (f" ({it.slip_no})" if it.slip_no else "")
+                              for it, q in short)
+            via = f" (sent via {d.carrier})" if d.carrier else ""
+            alert = f"⚠️ *Short delivery at {site_name}* — {d.dispatch_no}{via}\n{lines}\nReported by {p.name}."
             for who in self.roster.by_role("logistics") + self.roster.by_role("approver"):
-                self._notify(who, f"Short delivery at {site_name} ({slip.slip_no})", lambda who=who: self._text(who, alert))
+                self._notify(who, f"Short delivery at {site_name} ({d.dispatch_no})", lambda who=who: self._text(who, alert))
             self._text(p, f"Recorded. Shortage reported to logistics and the approver.\n{lines}")
         else:
             for l in self.roster.by_role("logistics"):
-                self._notify(l, f"{site_name} received {slip.slip_no}",
-                             lambda l=l: self._text(l, f"✅ {site_name} confirmed delivery of {slip.slip_no} ({p.name})."))
+                self._notify(l, f"{site_name} received {d.dispatch_no}",
+                             lambda l=l: self._text(l, f"✅ {site_name} confirmed delivery of {d.dispatch_no} ({p.name})."))
             self._text(p, f"✅ Recorded. Stock for {site_name} updated.")
 
     def _usage(self, p: Person, text: str) -> None:
@@ -1072,6 +1166,9 @@ class Bot:
             lines.append(f"Rejected: {lakh(rejected['a'])} ({rejected['n']} line{'s' if rejected['n'] != 1 else ''})")
         lines.append(f"Waiting for approval: {len(pending)}" + (f" ({lakh(sum(s.total for s in pending))})" if pending else ""))
         lines.append(f"Approved but not yet delivered: {undelivered} line(s)")
+        in_transit = self.db.one("SELECT COUNT(*) AS n FROM dispatches WHERE status = 'OPEN'")["n"]
+        if in_transit:
+            lines.append(f"Dispatches not yet confirmed by site: {in_transit}")
         if shorts:
             lines.append(f"⚠️ Short deliveries this month: {shorts}")
         return "\n".join(lines)

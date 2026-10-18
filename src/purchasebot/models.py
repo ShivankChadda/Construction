@@ -94,6 +94,35 @@ class SlipLine:
 
 
 @dataclass
+class DispatchItem:
+    id: int
+    line_no: int
+    name: str
+    item_key: str
+    qty: float
+    unit: str
+    slip_line_id: int | None
+    slip_no: str | None
+    stock_item: bool
+    received_qty: float | None
+
+
+@dataclass
+class Dispatch:
+    id: int
+    dispatch_no: str
+    site_code: str
+    carrier: str
+    note: str
+    created_by: str
+    created_at: str
+    status: str
+    received_at: str | None
+    received_by: str | None
+    items: list[DispatchItem] = field(default_factory=list)
+
+
+@dataclass
 class Slip:
     id: int
     slip_no: str

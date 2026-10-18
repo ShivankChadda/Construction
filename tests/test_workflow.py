@@ -254,7 +254,7 @@ def test_all_received_button(chat):
     assert store.stock_summary(chat.db, "DIG")[0]["qty"] == 4
     assert "Diglipur confirmed delivery" in chat.texts("abbas")
     chat.tap("siddhu", "✅ All received")
-    assert "already fully recorded" in chat.last("siddhu").body
+    assert "already recorded by Siddhu" in chat.last("siddhu").body
 
 
 def test_rejection_reopens_nothing_and_tells_everyone(chat):

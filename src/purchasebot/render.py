@@ -18,7 +18,9 @@ def req_card(req: Requisition, roster: Roster, heard: str = "", unclear: list[st
     head = f"📋 *Requirement – {site}*"
     head += f" ({req.req_no})" if req.req_no else " (draft, not sent yet)"
     lines = [head]
-    if req.entered_by_logistics:
+    if req.source == "group":
+        lines.append("_From the group, forwarded by logistics_")
+    elif req.entered_by_logistics:
         lines.append(f"_Entered by logistics for {req.engineer_name}_")
     if note:
         lines.append(f"_{note}_")
@@ -120,17 +122,19 @@ def open_list(items: list[dict], roster: Roster) -> str:
             lines.append(f"*{it['ref']}* {it['name']} — {qty(it['qty'])} {it['unit']}{tag}" + (f" · {age}d" if age else ""))
     first = items[0]["ref"]
     lines += ["", "To make a purchase slip, reply like:", f"_{first} Om Traders 420_",
-              "_N2 N3 Hira Metals 62 per kg_", "_freight Nicobar 4500 lump sum MV Swaraj Dweep_"]
+              "_N2 N3 Hira Metals 62 per kg_", "_ship charges Nicobar 4500 lump sum_"]
     return "\n".join(lines)
 
 
-def grn_text(slip: Slip, site_code: str, lines: list[SlipLine], roster: Roster, note: str = "") -> str:
-    out = [f"🚚 *Material for {roster.site_name(site_code)} – {slip.slip_no}*"]
-    if note:
-        out.append(f"_{note}_")
+def dispatch_text(d, roster: Roster) -> str:
+    out = [f"🚚 *{d.dispatch_no} → {roster.site_name(d.site_code)}*"]
+    meta = [x for x in (f"via {d.carrier}" if d.carrier else "", d.note) if x]
+    if meta:
+        out.append("_" + " · ".join(meta) + "_")
     out.append("")
-    for i, l in enumerate(lines, start=1):
-        out.append(f"{i}. {l.name} — {qty(l.qty)} {l.unit} ({l.vendor})")
+    for i in d.items:
+        q = f"{qty(i.qty)} {i.unit}" if i.qty else "qty ?"
+        out.append(f"{i.line_no}. {i.name} — {q}" + (f" ({i.slip_no})" if i.slip_no else ""))
     out += ["", "When it reaches site, tap *All received*, or *Short/damaged* to tell what actually came."]
     return "\n".join(out)
 
@@ -164,11 +168,13 @@ def help_text(p: Person, roster: Roster) -> str:
     if p.role == "logistics":
         return (
             f"🙏 Namaste {p.name}.\n\n"
+            "• *Forward* site requirements from the group to me (text, photo or voice) — I log them by site\n"
+            "• *Forward* your dispatch post (photo + caption) — the site confirms what arrives\n"
             "• *list* — open requirements from all sites (with PDF)\n"
             "• Make a slip: _N17 N18 Om Traders 420_ (one line per vendor/rate)\n"
             "• Then tap 📤 *Send for approval*\n"
             "• *edit PS-42* — pull back a slip to change it\n"
-            "• *dispatch PS-42 Nicobar MV Campbell Bay* — tell the site it's on the way\n"
+            "• *dispatch PS-42 Nicobar MV Campbell Bay* — send a slip's items to a site\n"
             "• *Nicobar: cement 50 bag* — enter a requirement for a site\n"
             "• *slips* — recent slips   • *stock* — all-site stock"
         )

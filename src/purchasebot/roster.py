@@ -98,6 +98,17 @@ class Roster:
         match = difflib.get_close_matches(t, list(candidates), n=1, cutoff=0.75)
         return candidates[match[0]] if match else None
 
+    def find_site_in_text(self, text: str) -> Site | None:
+        """The one site a message talks about ("Diglipur site requirements", "Car Nicobar Sector",
+        "ship to C/N"). None if no site or more than one is mentioned."""
+        t = text.lower()
+        hits = set()
+        for s in self.sites:
+            for n in (s.name, *s.aliases):
+                if re.search(rf"(?<![a-z0-9]){re.escape(n.lower())}(?![a-z0-9])", t):
+                    hits.add(s.code)
+        return self.site(hits.pop()) if len(hits) == 1 else None
+
     def site_by_letter(self, letter: str) -> Site | None:
         return next((s for s in self.sites if s.letter.upper() == letter.upper()), None)
 

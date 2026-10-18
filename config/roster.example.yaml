@@ -3,19 +3,21 @@
 # The phone number IS the identity — only the approver's number can approve.
 
 company:
-  name: "Your Construction Company Pvt Ltd"     # printed on every purchase slip
+  name: "KEC"                                  # TODO: full registered name — printed on every purchase slip
   address: "Port Blair, Andaman & Nicobar Islands"
   gstin: ""
 
 sites:
+  # Aliases are how people write the site in the group; the bot uses them to tell which site
+  # a forwarded message is about ("Car Nicobar Sector", "ship to C/N").
   - code: NIC
     name: Nicobar
     letter: N            # item refs for this site look like N17
-    aliases: [car nicobar, nicobar site]
+    aliases: [car nicobar, c/n, carnic]
   - code: KAM
     name: Kamorta
     letter: K
-    aliases: [komoota, kamorta site]
+    aliases: [komoota]   # TODO: if "N/C" in the group means Nancowry/Kamorta, add "n/c" here
   - code: DIG
     name: Diglipur
     letter: D
@@ -31,10 +33,16 @@ people:
     phone: "9000000002"
     role: engineer
     site: DIG
-  - name: "Thumb Angle"          # TODO: confirm the correct spelling of the Kamorta engineer's name
+    title: Supervisor
+  - name: Ami                    # posts Diglipur requirements in the group
+    phone: "9000000007"
+    role: engineer
+    site: DIG
+  - name: "Tambi Uncle"          # TODO: confirm — Kamorta engineer ("KEC Tambi Uncle" in the group)
     phone: "9000000003"
     role: engineer
     site: KAM
+  # TODO: "Agr Sup Raseed" is tagged on Diglipur dispatches — add him here if he receives material.
 
   # Logistics manager — builds purchase slips, marks dispatch
   - name: Abbas
@@ -44,7 +52,7 @@ people:
   # Approver — the ONLY person whose "yes" produces a signed slip.
   # Add a second approver only if you want someone to approve while he is unreachable;
   # their own name (not his) will appear on slips they approve.
-  - name: "Father's Full Name"    # TODO: printed as the digital signature on approved slips
+  - name: "Father's Full Name"    # TODO: printed as the digital signature on approved slips (shown as "Dad" in the group)
     initials: "FN"
     title: "Managing Director"
     phone: "9000000005"

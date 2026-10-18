@@ -1,0 +1,128 @@
+"""How the company actually works: everything happens in the 'Kailash Material' WhatsApp group.
+Abbas forwards site requirements and his own dispatch posts from the group to the bot."""
+
+from purchasebot import store
+from purchasebot.llm import DispatchParse, ParsedDispatchItem, ParsedItem, ReqParse, RuleParser
+from purchasebot.whatsapp import parse_webhook
+
+from conftest import PHONES
+
+
+def test_forwarded_requirement_with_site_named_in_it(chat):
+    chat.say("abbas", "Diglipur site requirements --\n\n1). Welding goggles 10 nos", forwarded=True)
+    assert "Requirement – Diglipur" in chat.texts("abbas")
+    chat.tap("abbas", "✅ Confirm")
+    req = store.load_requisition(chat.db, 1)
+    assert req.req_no == "REQ-DIG-0001" and req.source == "group"
+    assert [(i.name, i.qty, i.unit) for i in req.items] == [("Welding goggles", 10, "nos")]
+    assert "logged this requirement from the group" in chat.texts("siddhu")
+    chat.say("abbas", "D1 Om Traders 180")
+    # forwarded from the group means the site asked; it is not flagged as invented by logistics
+    assert store.slip_by_number(chat.db, 1).lines[0].flags == []
+
+
+def test_forwarded_requirement_without_site_asks_which(chat):
+    chat.say("abbas", "binding wire 25 kg", forwarded=True)
+    ask = chat.last("abbas", "buttons")
+    assert "Which site" in ask.body and [t for _, t in ask.buttons] == ["Nicobar", "Kamorta", "Diglipur"]
+    chat.tap("abbas", "Kamorta")
+    assert "Requirement – Kamorta" in chat.texts("abbas")
+
+
+class PhotoReqParser(RuleParser):
+    def __init__(self):
+        self.seen_images = []
+
+    def parse_requisition(self, text, site_name, known_items, current=None, images=None):
+        self.seen_images.append(images)
+        return ReqParse(items=[ParsedItem("Laminated plywood door 8ft x 4ft (like photo)", "plywood door 8x4", 1, "nos")])
+
+
+def test_forwarded_photo_keeps_the_image_through_the_site_question(make_chat):
+    parser = PhotoReqParser()
+    chat = make_chat(parser=parser)
+    chat.photo("abbas", "like this type of Ply for KEC house = 1 no 8ft×4ft", data=b"\xff\xd8door", forwarded=True)
+    chat.tap("abbas", "Kamorta")
+    assert parser.seen_images[-1] == [(b"\xff\xd8door", "image/jpeg")]
+    assert "plywood door 8ft x 4ft" in chat.texts("abbas")
+
+
+class ScriptedDispatch(RuleParser):
+    def __init__(self, make):
+        self.make = make
+
+    def parse_dispatch(self, text, open_lines, images=None):
+        return self.make(open_lines)
+
+
+def test_dispatch_photo_with_non_purchase_items(make_chat):
+    def manifest(open_lines):
+        cement = next(l for l in open_lines if "cement" in l["item_key"])
+        return DispatchParse(carrier="Prem, by ship", note="", items=[
+            ParsedDispatchItem("Cement", "cement", 50, "bag", cement["id"]),
+            ParsedDispatchItem("Grinding machine (repaired)", "grinding machine", 2, "nos", 0, stock_item=False),
+            ParsedDispatchItem("Calculator", "calculator", 1, "nos"),
+        ])
+
+    chat = make_chat(parser=ScriptedDispatch(manifest))
+    chat.requisition("chandra", "cement 50 bags")
+    chat.slip("N1 Om Traders 420")
+    chat.say("boss", "yes")
+    chat.photo("abbas", "Car Nicobar Sector - Item handed over to Prem travelling in ship to C/N. @KEC Engineer Chandramohan",
+               forwarded=True)
+    assert "DSP-0001" in chat.last("abbas").body and "matched to approved slips (PS-0001)" in chat.last("abbas").body
+    card = chat.texts("chandra")
+    assert "DSP-0001 → Nicobar" in card and "via Prem, by ship" in card and "Grinding machine (repaired)" in card
+
+    chat.tap("chandra", "⚠️")
+    chat.say("chandra", "1-45")
+    stock = {r["name"]: r["qty"] for r in store.stock_summary(chat.db, "NIC")}
+    assert stock == {"Cement": 45, "Calculator": 1}  # the repaired machine is not stock
+    assert store.slip_by_number(chat.db, 1).lines[0].received_qty == 45
+    assert "Short delivery at Nicobar" in chat.texts("boss") and "sent via Prem, by ship" in chat.texts("boss")
+
+
+def test_bus_dispatch_caption_without_a_list(chat):
+    chat.requisition("siddhu", "gitti 20mm 4 brass\nwelding glass 10 nos")
+    chat.slip("D1 Om Traders 6500\nD2 Om Traders 150")
+    chat.say("boss", "yes")
+    chat.say("abbas", "Diglipur Sector - Welding glass loaded in Anand Bus AN01F3868 departed today at 10.00 AM. "
+                      "Bus will be parked near BD BAR due to Puja festival. Transportation not paid.", forwarded=True)
+    card = chat.texts("siddhu")
+    assert "Welding glass — 10 nos (PS-0001)" in card and "Gitti" not in card.split("DSP-0001")[1]
+    assert "Transportation not paid" in card
+    chat.say("siddhu", "received")
+    assert "Approved but not dispatched yet" in chat.texts("siddhu") and "Gitti 20mm" in chat.last("siddhu").body
+
+
+def test_father_style_go_ahead(chat):
+    chat.requisition("chandra", "cement 50 bags")
+    chat.slip("N1 Om Traders 420")
+    chat.say("boss", "Abbas do it", quote=chat.last("boss", "buttons"))
+    assert store.slip_by_number(chat.db, 1).status == "APPROVED"
+
+
+def test_webhook_marks_forwarded_messages():
+    p = {"entry": [{"changes": [{"value": {"messages": [
+        {"from": PHONES["abbas"], "id": "f1", "type": "text", "text": {"body": "Diglipur site requirements"},
+         "context": {"forwarded": True}},
+        {"from": PHONES["abbas"], "id": "f2", "type": "text", "text": {"body": "x"}, "context": {"frequently_forwarded": True}},
+        {"from": PHONES["abbas"], "id": "f3", "type": "text", "text": {"body": "x"}},
+    ]}}]}]}
+    got = {m.wamid: m.forwarded for m in parse_webhook(p)}
+    assert got == {"f1": True, "f2": True, "f3": False}
+
+
+def test_dispatch_is_mirrored_to_sheets(chat):
+    from purchasebot.google_sync import process_queue
+    from test_integrations import FakeSync
+
+    chat.requisition("siddhu", "gitti 20mm 4 brass")
+    chat.slip("D1 Om Traders 6500")
+    chat.say("boss", "yes")
+    chat.say("abbas", "dispatch PS-1 Anand Bus")
+    chat.tap("siddhu", "✅ All received")
+    sync = FakeSync()
+    process_queue(chat.db, sync, chat.bot.roster)
+    rows = [r for t, rs in sync.upserts if t == "Dispatches" for r in rs]
+    assert rows[-1][0] == "DSP-0001#1" and rows[-1][7] == "PS-0001" and rows[-1][13] == "RECEIVED"
