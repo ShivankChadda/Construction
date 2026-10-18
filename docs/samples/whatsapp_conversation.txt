@@ -1,0 +1,514 @@
+=== 10 Oct: an earlier purchase, so the bot has price history ===
+
+Chandramohan ▶ Cement OPC 53 grade 40 bags
+
+  ⇢ Chandramohan
+      📋 *Requirement – Nicobar* (draft, not sent yet)
+      
+      1. Cement OPC 53 grade — 40 bag
+
+  ⇢ Chandramohan
+      Is this list correct? You can also just send changes, e.g. "cement 60 bag" or "remove sand".
+      [1] ✅ Confirm
+      [2] ✏️ Change
+      [3] ❌ Cancel
+
+Chandramohan ▶ [taps ✅ Confirm]
+
+  ⇢ Chandramohan
+      ✅ Sent to Abbas as *REQ-NIC-0001*.
+      You'll get a message when the material is dispatched.
+
+  ⇢ Abbas
+      📥 *New requirement from Chandramohan*
+      
+      📋 *Requirement – Nicobar* (REQ-NIC-0001)
+      
+      N1 Cement OPC 53 grade — 40 bag
+      
+      Reply *list* to see all open items.
+
+Abbas ▶ N1 Om Traders 395
+
+  ⇢ Abbas
+      🧾 *PS-0001* — draft
+      _1 line · 1 site · by Abbas_
+      
+      📍 *NICOBAR*
+      1. Cement OPC 53 grade — 40 bag × ₹395 = *₹15,800*
+          Om Traders · N1
+      
+      *By vendor:* Om Traders ₹15,800
+      *Total: ₹15,800*
+
+  ⇢ Abbas
+      *PS-0001* · ₹15,800 · 1 line
+      
+      Send more lines or changes, or send it for approval.
+      [1] 📤 Send for approval
+      [2] ✏️ Change
+      [3] 🗑 Discard
+
+Abbas ▶ [taps 📤 Send for approval]
+
+  ⇢ Father's Full Name  📄 PS-0001_v1_PENDING.pdf  — PS-0001 — for your approval
+
+  ⇢ Father's Full Name
+      🧾 *PS-0001* — for your approval
+      _1 line · 1 site · by Abbas_
+      
+      📍 *NICOBAR*
+      1. Cement OPC 53 grade — 40 bag × ₹395 = *₹15,800*
+          Om Traders · N1
+      
+      *By vendor:* Om Traders ₹15,800
+      *Total: ₹15,800*
+
+  ⇢ Father's Full Name
+      *PS-0001* · ₹15,800 · 1 line
+      
+      Reply *yes* / *haan* to approve all, *no* to reject.
+      To drop a line: *3 nahi*. To approve some: *only 1 2*.
+      Anything else you type goes to logistics as a question.
+      [1] ✅ Approve all
+      [2] ❌ Reject
+      [3] ❓ Ask logistics
+
+  ⇢ Abbas
+      📤 *PS-0001* (₹15,800) sent to Father's Full Name for approval.
+
+Father's Full Name ▶ yes
+
+  ⇢ Father's Full Name
+      Done. ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
+      The signed slip has gone to logistics.
+
+  ⇢ Father's Full Name  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code JP4V-I2ES-TO7Z
+
+  ⇢ Abbas
+      ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
+      Reply: "yes"
+      
+      Verification code: *JP4V-I2ES-TO7Z*
+      
+      Buy only what is approved, from the vendors listed. When loaded, send *dispatch PS-0001 <site> <vessel/vehicle>*.
+
+  ⇢ Abbas  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code JP4V-I2ES-TO7Z
+
+  ⇢ Shivank
+      ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
+      Reply: "yes"
+      
+      Verification code: *JP4V-I2ES-TO7Z*
+
+  ⇢ Shivank  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code JP4V-I2ES-TO7Z
+
+  ⇢ Chandramohan
+      🧾 *PS-0001* update for Nicobar:
+      ✅ N1 Cement OPC 53 grade 40 bag — approved for purchase
+
+
+=== 18 Oct: three sites send requirements ===
+
+Chandramohan ▶ Cement OPC 53 grade 50 bags
+TMT 12mm 2 mt
+River sand 3 truck
+
+  ⇢ Chandramohan
+      📋 *Requirement – Nicobar* (draft, not sent yet)
+      
+      1. Cement OPC 53 grade — 50 bag
+      2. TMT 12mm — 2 mt
+      3. River sand — 3 truck
+
+  ⇢ Chandramohan
+      Is this list correct? You can also just send changes, e.g. "cement 60 bag" or "remove sand".
+      [1] ✅ Confirm
+      [2] ✏️ Change
+      [3] ❌ Cancel
+
+Chandramohan ▶ [taps ✅ Confirm]
+
+  ⇢ Chandramohan
+      ✅ Sent to Abbas as *REQ-NIC-0002*.
+      You'll get a message when the material is dispatched.
+
+  ⇢ Abbas
+      📥 *New requirement from Chandramohan*
+      
+      📋 *Requirement – Nicobar* (REQ-NIC-0002)
+      
+      N2 Cement OPC 53 grade — 50 bag
+      N3 TMT 12mm — 2 mt
+      N4 River sand — 3 truck
+      
+      Reply *list* to see all open items.
+
+Thumb Angle ▶ binding wire 25 kg
+shuttering ply 20 sheet
+
+  ⇢ Thumb Angle
+      📋 *Requirement – Kamorta* (draft, not sent yet)
+      
+      1. Binding wire — 25 kg
+      2. Shuttering ply — 20 sheet
+
+  ⇢ Thumb Angle
+      Is this list correct? You can also just send changes, e.g. "cement 60 bag" or "remove sand".
+      [1] ✅ Confirm
+      [2] ✏️ Change
+      [3] ❌ Cancel
+
+Thumb Angle ▶ [taps ✅ Confirm]
+
+  ⇢ Thumb Angle
+      ✅ Sent to Abbas as *REQ-KAM-0001*.
+      You'll get a message when the material is dispatched.
+
+  ⇢ Abbas
+      📥 *New requirement from Thumb Angle*
+      
+      📋 *Requirement – Kamorta* (REQ-KAM-0001)
+      
+      K1 Binding wire — 25 kg
+      K2 Shuttering ply — 20 sheet
+      
+      Reply *list* to see all open items.
+
+Siddhu ▶ 🎙 (voice note)
+
+  ⇢ Siddhu
+      📋 *Requirement – Diglipur* (draft, not sent yet)
+      
+      1. Cement OPC 53 grade — 30 bag
+      2. Gitti 20mm — 4 brass
+      
+      🔴 *URGENT*
+      
+      🎙 _I heard:_ "cement OPC 53 grade 30 bag, gitti 20mm 4 brass, urgent"
+
+  ⇢ Siddhu
+      Is this list correct? You can also just send changes, e.g. "cement 60 bag" or "remove sand".
+      [1] ✅ Confirm
+      [2] ✏️ Change
+      [3] ❌ Cancel
+
+Siddhu ▶ [taps ✅ Confirm]
+
+  ⇢ Siddhu
+      ✅ Sent to Abbas as *REQ-DIG-0001*.
+      You'll get a message when the material is dispatched.
+
+  ⇢ Abbas
+      📥 *New requirement from Siddhu*
+      
+      📋 *Requirement – Diglipur* (REQ-DIG-0001)
+      
+      D1 Cement OPC 53 grade — 30 bag
+      D2 Gitti 20mm — 4 brass
+      
+      🔴 *URGENT*
+      
+      Reply *list* to see all open items.
+
+Abbas ▶ list
+
+  ⇢ Abbas
+      📋 *Open requirements* (7 items)
+      
+      📍 *NICOBAR* — Chandramohan
+      *N2* Cement OPC 53 grade — 50 bag
+      *N3* TMT 12mm — 2 mt
+      *N4* River sand — 3 truck
+      
+      📍 *KAMORTA* — Thumb Angle
+      *K1* Binding wire — 25 kg
+      *K2* Shuttering ply — 20 sheet
+      
+      📍 *DIGLIPUR* — Siddhu
+      *D1* Cement OPC 53 grade — 30 bag 🔴
+      *D2* Gitti 20mm — 4 brass 🔴
+      
+      To make a purchase slip, reply like:
+      _D1 Om Traders 420_
+      _N2 N3 Hira Metals 62 per kg_
+      _freight Nicobar 4500 lump sum MV Swaraj Dweep_
+
+  ⇢ Abbas  📄 requirements-20261018-1200.pdf  — Open requirements by site — for the market
+
+Abbas ▶ N2 Om Traders 420
+N3 Hira Metals 62000
+N4 Om Traders 9500
+K1 Hira Metals 85
+K2 Sagar Hardware 1450
+D1 Om Traders 420
+D2 Om Traders 6500
+
+  ⇢ Abbas
+      🧾 *PS-0002* — draft
+      _7 lines · 3 sites · by Abbas_
+      
+      📍 *NICOBAR*
+      1. Cement OPC 53 grade — 50 bag × ₹420 = *₹21,000*
+          Om Traders · N2
+          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
+          ⚠️ Already bought 40 bag for Nicobar on 10 Oct 2026 (PS-0001)
+      2. TMT 12mm — 2 mt × ₹62,000 = *₹1,24,000*
+          Hira Metals · N3
+      3. River sand — 3 truck × ₹9,500 = *₹28,500*
+          Om Traders · N4
+      
+      📍 *KAMORTA*
+      4. Binding wire — 25 kg × ₹85 = *₹2,125*
+          Hira Metals · K1
+      5. Shuttering ply — 20 sheet × ₹1,450 = *₹29,000*
+          Sagar Hardware · K2
+          ⚠️ New vendor "Sagar Hardware" — not on the approved vendor list
+      
+      📍 *DIGLIPUR*
+      6. Cement OPC 53 grade — 30 bag × ₹420 = *₹12,600*
+          Om Traders · D1
+          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
+      7. Gitti 20mm — 4 brass × ₹6,500 = *₹26,000*
+          Om Traders · D2
+      
+      *By vendor:* Om Traders ₹88,100 · Hira Metals ₹1,26,125 · Sagar Hardware ₹29,000
+      *Total: ₹2,43,225*
+
+  ⇢ Abbas
+      *PS-0002* · ₹2,43,225 · 7 lines
+      ⚠️ 4 alerts — see the list above
+      
+      Send more lines or changes, or send it for approval.
+      [1] 📤 Send for approval
+      [2] ✏️ Change
+      [3] 🗑 Discard
+
+Abbas ▶ [taps 📤 Send for approval]
+
+  ⇢ Father's Full Name  📄 PS-0002_v1_PENDING.pdf  — PS-0002 — for your approval
+
+  ⇢ Father's Full Name
+      🧾 *PS-0002* — for your approval
+      _7 lines · 3 sites · by Abbas_
+      
+      📍 *NICOBAR*
+      1. Cement OPC 53 grade — 50 bag × ₹420 = *₹21,000*
+          Om Traders · N2
+          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
+          ⚠️ Already bought 40 bag for Nicobar on 10 Oct 2026 (PS-0001)
+      2. TMT 12mm — 2 mt × ₹62,000 = *₹1,24,000*
+          Hira Metals · N3
+      3. River sand — 3 truck × ₹9,500 = *₹28,500*
+          Om Traders · N4
+      
+      📍 *KAMORTA*
+      4. Binding wire — 25 kg × ₹85 = *₹2,125*
+          Hira Metals · K1
+      5. Shuttering ply — 20 sheet × ₹1,450 = *₹29,000*
+          Sagar Hardware · K2
+          ⚠️ New vendor "Sagar Hardware" — not on the approved vendor list
+      
+      📍 *DIGLIPUR*
+      6. Cement OPC 53 grade — 30 bag × ₹420 = *₹12,600*
+          Om Traders · D1
+          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
+      7. Gitti 20mm — 4 brass × ₹6,500 = *₹26,000*
+          Om Traders · D2
+      
+      *By vendor:* Om Traders ₹88,100 · Hira Metals ₹1,26,125 · Sagar Hardware ₹29,000
+      *Total: ₹2,43,225*
+
+  ⇢ Father's Full Name
+      *PS-0002* · ₹2,43,225 · 7 lines
+      ⚠️ 4 alerts — see the list above
+      
+      Reply *yes* / *haan* to approve all, *no* to reject.
+      To drop a line: *3 nahi*. To approve some: *only 1 2*.
+      Anything else you type goes to logistics as a question.
+      [1] ✅ Approve all
+      [2] ❌ Reject
+      [3] ❓ Ask logistics
+
+  ⇢ Abbas
+      📤 *PS-0002* (₹2,43,225) sent to Father's Full Name for approval.
+
+Father's Full Name ▶ cement 420 kyun? last time 395 tha
+
+  ⇢ Abbas
+      ❓ *Father's Full Name asks about PS-0002:*
+      cement 420 kyun? last time 395 tha
+      
+      _Reply to this message to answer. To change the slip, send *edit PS-0002*._
+
+  ⇢ Father's Full Name
+      📨 Sent to Abbas: "cement 420 kyun? last time 395 tha"
+      PS-0002 is still waiting for your decision.
+
+Abbas ▶ Ship freight badh gaya, Om Traders ka naya rate hai
+
+  ⇢ Father's Full Name
+      💬 *Abbas replied about PS-0002:*
+      Ship freight badh gaya, Om Traders ka naya rate hai
+      
+      _Reply to this message to answer, or say yes / no to decide._
+
+  ⇢ Abbas
+      Sent to Father's Full Name.
+
+Father's Full Name ▶ 5 nahi
+
+  ⇢ Father's Full Name
+      *PS-0002* — please confirm:
+      ✅ Approve line 1, 2, 3, 4, 6, 7 (₹2,14,225)
+      ❌ Reject line 5 (₹29,000)
+      
+      [1] ✅ Confirm
+      [2] ↩️ Cancel
+
+Father's Full Name ▶ [taps ✅ Confirm]
+
+  ⇢ Father's Full Name
+      Done. 🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,14,225 of ₹2,43,225
+      The signed slip has gone to logistics.
+
+  ⇢ Father's Full Name  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code 7IZE-7CWE-WHQD
+
+  ⇢ Abbas
+      🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,14,225 of ₹2,43,225
+      Reply: "5 nahi"
+      
+      Not approved — do *not* buy:
+      ❌ 5. Shuttering ply (Sagar Hardware)
+      
+      Verification code: *7IZE-7CWE-WHQD*
+      
+      Buy only what is approved, from the vendors listed. When loaded, send *dispatch PS-0002 <site> <vessel/vehicle>*.
+
+  ⇢ Abbas  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code 7IZE-7CWE-WHQD
+
+  ⇢ Shivank
+      🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,14,225 of ₹2,43,225
+      Reply: "5 nahi"
+      
+      Not approved — do *not* buy:
+      ❌ 5. Shuttering ply (Sagar Hardware)
+      
+      Verification code: *7IZE-7CWE-WHQD*
+
+  ⇢ Shivank  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code 7IZE-7CWE-WHQD
+
+  ⇢ Chandramohan
+      🧾 *PS-0002* update for Nicobar:
+      ✅ N2 Cement OPC 53 grade 50 bag — approved for purchase
+      ✅ N3 TMT 12mm 2 mt — approved for purchase
+      ✅ N4 River sand 3 truck — approved for purchase
+
+  ⇢ Thumb Angle
+      🧾 *PS-0002* update for Kamorta:
+      ✅ K1 Binding wire 25 kg — approved for purchase
+      ❌ K2 Shuttering ply — not approved
+
+  ⇢ Siddhu
+      🧾 *PS-0002* update for Diglipur:
+      ✅ D1 Cement OPC 53 grade 30 bag — approved for purchase
+      ✅ D2 Gitti 20mm 4 brass — approved for purchase
+
+Abbas ▶ dispatch PS-0002 Nicobar MV Campbell Bay
+
+  ⇢ Chandramohan
+      🚚 *Material for Nicobar – PS-0002*
+      _MV Campbell Bay_
+      
+      1. Cement OPC 53 grade — 50 bag (Om Traders)
+      2. TMT 12mm — 2 mt (Hira Metals)
+      3. River sand — 3 truck (Om Traders)
+      
+      When it reaches site, tap *All received*, or *Short/damaged* to tell what actually came.
+
+  ⇢ Chandramohan
+      PS-0002: did everything arrive?
+      [1] ✅ All received
+      [2] ⚠️ Short/damaged
+
+  ⇢ Abbas
+      🚚 PS-0002 marked dispatched to Nicobar. The site will confirm delivery.
+
+Abbas ▶ dispatch PS-0002 Kamorta MV Swaraj Dweep
+
+  ⇢ Thumb Angle
+      🚚 *Material for Kamorta – PS-0002*
+      _MV Swaraj Dweep_
+      
+      1. Binding wire — 25 kg (Hira Metals)
+      
+      When it reaches site, tap *All received*, or *Short/damaged* to tell what actually came.
+
+  ⇢ Thumb Angle
+      PS-0002: did everything arrive?
+      [1] ✅ All received
+      [2] ⚠️ Short/damaged
+
+  ⇢ Abbas
+      🚚 PS-0002 marked dispatched to Kamorta. The site will confirm delivery.
+
+Chandramohan ▶ [taps ⚠️ Short/damaged]
+
+  ⇢ Chandramohan
+      Tell me what actually came for PS-0002:
+      1. Cement OPC 53 grade — 50 bag
+      2. TMT 12mm — 2 mt
+      3. River sand — 3 truck
+      
+      Reply like *1-45, 3-0* (line – qty received), or in words: "cement 45 bag aaya, sand nahi aaya".
+      _Lines you don't mention are counted as fully received._
+
+Chandramohan ▶ 3-2
+
+  ⇢ Abbas
+      ⚠️ *Short delivery at Nicobar* — PS-0002
+      • River sand: got 2 of 3 truck (Om Traders)
+      Reported by Chandramohan.
+
+  ⇢ Father's Full Name
+      ⚠️ *Short delivery at Nicobar* — PS-0002
+      • River sand: got 2 of 3 truck (Om Traders)
+      Reported by Chandramohan.
+
+  ⇢ Chandramohan
+      Recorded. Shortage reported to logistics and the approver.
+      • River sand: got 2 of 3 truck (Om Traders)
+
+Thumb Angle ▶ [taps ✅ All received]
+
+  ⇢ Abbas
+      ✅ Kamorta confirmed delivery of PS-0002 (Thumb Angle).
+
+  ⇢ Thumb Angle
+      ✅ Recorded. Stock for Kamorta updated.
+
+Chandramohan ▶ used 10 bag cement
+
+  ⇢ Chandramohan
+      📝 Recorded:
+      Cement OPC 53 grade: used 10 bag, left 40
+
+Chandramohan ▶ stock
+
+  ⇢ Chandramohan
+      📦 *Stock – Nicobar*
+      Cement OPC 53 grade — 40 bag
+      River sand — 2 truck
+      TMT 12mm — 2 mt
+
+Father's Full Name ▶ report
+
+  ⇢ Father's Full Name
+      📊 *October 2026 so far*
+      Approved: *₹2.30 L* across 2 slip(s)
+      By site: Nicobar ₹1.89 L · Diglipur ₹38,600 · Kamorta ₹2,125
+      Top vendors: Hira Metals ₹1.26 L · Om Traders ₹1.04 L
+      Rejected: ₹29,000 (1 line)
+      Waiting for approval: 0
+      Approved but not yet delivered: 3 line(s)
+      ⚠️ Short deliveries this month: 1

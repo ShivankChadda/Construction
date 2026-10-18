@@ -1,0 +1,63 @@
+# Copy this file to config/roster.yaml and fill in real names and numbers.
+# Phone numbers: 10-digit Indian mobile numbers are fine (91 is added).
+# The phone number IS the identity — only the approver's number can approve.
+
+company:
+  name: "Your Construction Company Pvt Ltd"     # printed on every purchase slip
+  address: "Port Blair, Andaman & Nicobar Islands"
+  gstin: ""
+
+sites:
+  - code: NIC
+    name: Nicobar
+    letter: N            # item refs for this site look like N17
+    aliases: [car nicobar, nicobar site]
+  - code: KAM
+    name: Kamorta
+    letter: K
+    aliases: [komoota, kamorta site]
+  - code: DIG
+    name: Diglipur
+    letter: D
+    aliases: [diglipur site]
+
+people:
+  # Site engineers — send requirements, confirm deliveries, report usage
+  - name: Chandramohan
+    phone: "9000000001"
+    role: engineer
+    site: NIC
+  - name: Siddhu
+    phone: "9000000002"
+    role: engineer
+    site: DIG
+  - name: "Thumb Angle"          # TODO: confirm the correct spelling of the Kamorta engineer's name
+    phone: "9000000003"
+    role: engineer
+    site: KAM
+
+  # Logistics manager — builds purchase slips, marks dispatch
+  - name: Abbas
+    phone: "9000000004"
+    role: logistics
+
+  # Approver — the ONLY person whose "yes" produces a signed slip.
+  # Add a second approver only if you want someone to approve while he is unreachable;
+  # their own name (not his) will appear on slips they approve.
+  - name: "Father's Full Name"    # TODO: printed as the digital signature on approved slips
+    initials: "FN"
+    title: "Managing Director"
+    phone: "9000000005"
+    role: approver
+
+  # Observers — get copies of approved slips and the daily summary; cannot approve
+  - name: Shivank
+    phone: "9000000006"
+    role: observer
+
+vendors:
+  # Known suppliers. A slip line with a vendor NOT on this list is flagged "new vendor".
+  - name: Om Traders
+    aliases: [om, ome, ome trader, om trader]
+  - name: Hira Metals
+    aliases: [hera, hera metals, heera, heera metals]
