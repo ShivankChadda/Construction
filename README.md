@@ -72,6 +72,8 @@ Two more WhatsApp rules:
 
 ## Try it now (no WhatsApp needed)
 
+Open [`docs/trial.html`](docs/trial.html) in a browser for a guided, clickable trial run: the group, Abbas's chat, Dad's chat and each engineer's chat side by side, with the register, slips, dispatches and stock updating live.
+
 ```bash
 pip install -e '.[dev]'
 purchasebot demo            # scripted run: 3 sites → slip → question → partial approval → delivery → stock

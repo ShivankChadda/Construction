@@ -1,0 +1,1443 @@
+<title>KEC Purchase Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Tinos:ital,wght@1,700&display=swap">
+<style>
+/* Layout: site-office board. Steps on the left, a phone in the middle, the register behind it on the right. */
+:root {
+  --bg: #eef1ee;
+  --surface: #ffffff;
+  --surface-2: #f6f8f6;
+  --ink: #1b2631;
+  --muted: #5b6874;
+  --rule: #d6dcd8;
+  --accent: #2547a8;          /* stamp-pad blue */
+  --accent-ink: #ffffff;
+  --accent-soft: #e4eafb;
+  --mine: #dde7fb;            /* the person's own bubbles */
+  --paper: #fdf9ea;           /* carbon-copy slip paper */
+  --paper-rule: #e6dcb8;
+  --band: #18242f;
+  --band-ink: #eef2f5;
+  --band-muted: #a9b6c1;
+  --ok: #1d7a4c;  --ok-soft: #dff1e7;
+  --warn: #9a5d00; --warn-soft: #fbecd2;
+  --bad: #b3261e; --bad-soft: #f9e0de;
+  --p1: #0f6e78; --p2: #8a4b0f; --p3: #6b3fa0; --p4: #a3324f; --p5: #2547a8; --p6: #3d6b21;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --sign: "Tinos", "Times New Roman", Georgia, serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11171c; --surface: #1a2229; --surface-2: #151c22; --ink: #e5ebef; --muted: #96a4ae; --rule: #2c3741;
+  --accent: #8aa6ff; --accent-ink: #0d1530; --accent-soft: #1f2a48; --mine: #22324f;
+  --paper: #26241a; --paper-rule: #4a4430; --band: #0b1015; --band-ink: #e9eef2; --band-muted: #8e9ba6;
+  --ok: #5fcf95; --ok-soft: #173627; --warn: #f0b45a; --warn-soft: #3a2c12; --bad: #ff8a80; --bad-soft: #3d1c1a;
+  --p1: #5cc7d1; --p2: #e2a160; --p3: #b896ee; --p4: #f08aa5; --p5: #8aa6ff; --p6: #9fd27a;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11171c; --surface: #1a2229; --surface-2: #151c22; --ink: #e5ebef; --muted: #96a4ae; --rule: #2c3741;
+  --accent: #8aa6ff; --accent-ink: #0d1530; --accent-soft: #1f2a48; --mine: #22324f;
+  --paper: #26241a; --paper-rule: #4a4430; --band: #0b1015; --band-ink: #e9eef2; --band-muted: #8e9ba6;
+  --ok: #5fcf95; --ok-soft: #173627; --warn: #f0b45a; --warn-soft: #3a2c12; --bad: #ff8a80; --bad-soft: #3d1c1a;
+  --p1: #5cc7d1; --p2: #e2a160; --p3: #b896ee; --p4: #f08aa5; --p5: #8aa6ff; --p6: #9fd27a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1340px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); font-stretch: 82%; letter-spacing: 0.005em; text-wrap: balance; margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- top band ---------- */
+.top { background: var(--band); color: var(--band-ink); }
+.top .wrap { display: flex; flex-wrap: wrap; gap: 18px 32px; align-items: flex-end; justify-content: space-between; padding-block: 22px 20px; }
+.top .eyebrow { color: var(--band-muted); }
+.top h1 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; line-height: 1.05; margin-top: 4px; }
+.top .lede { margin: 8px 0 0; max-width: 64ch; color: var(--band-muted); font-size: 15.5px; }
+.top .lede b { color: var(--band-ink); font-weight: 600; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.clock { font-family: var(--mono); font-size: 13px; padding: 7px 10px; border: 1px solid #ffffff2e; border-radius: 8px; white-space: nowrap; }
+.ai { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; padding: 6px 10px; border: 1px solid #ffffff2e; border-radius: 8px; }
+.ai input { accent-color: var(--accent); }
+.ai .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--band-muted); }
+.ai.on .dot { background: #6fdc9f; }
+.name-field { display: inline-flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--band-muted); }
+.name-field input { font: inherit; font-size: 14px; color: var(--band-ink); background: #ffffff12; border: 1px solid #ffffff2e; border-radius: 7px; padding: 6px 9px; width: 210px; max-width: 100%; }
+.btn { border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 14px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.ghost-dark { background: transparent; color: var(--band-ink); border-color: #ffffff3a; }
+.btn.small { padding: 4px 9px; font-size: 13px; }
+
+/* ---------- simulator grid ---------- */
+.sim { display: grid; grid-template-columns: 300px minmax(340px, 420px) minmax(0, 1fr); gap: 18px; align-items: start; padding-block: 20px 8px; }
+@media (max-width: 1150px) { .sim { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .coach { grid-column: 1 / -1; } }
+@media (max-width: 780px) { .sim { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--rule); }
+.panel-head h2 { font-size: 17px; font-weight: 700; }
+
+/* coach */
+.steps { list-style: none; margin: 0; padding: 6px 0; counter-reset: step; }
+.step { padding: 9px 14px; border-left: 3px solid transparent; }
+.step + .step { border-top: 1px solid var(--rule); }
+.step.active { border-left-color: var(--accent); background: var(--surface-2); }
+.step-row { display: flex; gap: 10px; align-items: flex-start; }
+.step-num { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 12px; border: 1.5px solid var(--rule); color: var(--muted); margin-top: 1px; }
+.step.done .step-num { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.step.active .step-num { border-color: var(--accent); color: var(--accent); }
+.step-title { font-weight: 700; font-size: 14.5px; line-height: 1.3; background: none; border: 0; padding: 0; color: inherit; text-align: left; }
+.step-body { margin: 6px 0 2px 32px; font-size: 14px; color: var(--muted); }
+.step-body p { margin: 0 0 8px; }
+.step-body b { color: var(--ink); font-weight: 600; }
+.step-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+/* phone */
+.phone { display: flex; flex-direction: column; height: min(700px, 82vh); overflow: hidden; }
+.chats { display: flex; gap: 6px; overflow-x: auto; padding: 10px 10px 8px; border-bottom: 1px solid var(--rule); scrollbar-width: thin; }
+.chat-tab { flex: none; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600; display: inline-flex; gap: 6px; align-items: center; }
+.chat-tab[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.chat-tab .badge { background: var(--accent); color: var(--accent-ink); border-radius: 999px; font-size: 11px; min-width: 18px; padding: 0 5px; text-align: center; font-family: var(--mono); }
+.chat-head { padding: 10px 14px; border-bottom: 1px solid var(--rule); display: flex; gap: 10px; align-items: center; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 14px; color: var(--surface); background: var(--muted); flex: none; }
+.chat-head .who { font-weight: 700; line-height: 1.2; }
+.chat-head .sub { font-size: 12.5px; color: var(--muted); }
+.msgs { flex: 1; overflow-y: auto; padding: 12px 12px 6px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); }
+.daysep { align-self: center; font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1px 8px; }
+.note { align-self: center; text-align: center; max-width: 92%; font-size: 12.5px; color: var(--muted); }
+.msg { max-width: 88%; display: flex; flex-direction: column; gap: 5px; }
+.msg.mine { align-self: flex-end; }
+.bubble { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 7px 10px 5px; font-size: 14px; overflow-wrap: anywhere; }
+.msg.mine .bubble { background: var(--mine); border-color: transparent; }
+.bubble .from { font-size: 12.5px; font-weight: 700; margin-bottom: 1px; }
+.bubble .fwd { font-size: 11.5px; color: var(--muted); font-style: italic; }
+.bubble .quote { border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 4px; padding: 3px 7px; margin: 2px 0 5px; font-size: 12.5px; color: var(--muted); }
+.bubble .meta { display: flex; justify-content: flex-end; gap: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.bubble .photo { display: grid; place-items: center; height: 90px; border-radius: 6px; margin-bottom: 5px; background: repeating-linear-gradient(135deg, var(--surface-2) 0 10px, var(--rule) 10px 11px); color: var(--muted); font-size: 12px; }
+.msg-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.msg.mine .msg-actions { justify-content: flex-end; }
+.link-btn { border: 0; background: none; color: var(--accent); font-size: 12.5px; font-weight: 600; padding: 0 2px; }
+.reply-btns { display: grid; gap: 4px; }
+.reply-btns button { border: 1px solid var(--rule); background: var(--surface); color: var(--accent); font-weight: 600; font-size: 14px; border-radius: 8px; padding: 7px 8px; }
+.reply-btns button:hover { border-color: var(--accent); }
+.doc { display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 9px 10px; text-align: left; color: var(--ink); width: 100%; }
+.doc .ic { width: 34px; height: 42px; border-radius: 4px; background: var(--paper); border: 1px solid var(--paper-rule); display: grid; place-items: center; font-family: var(--mono); font-size: 10px; color: var(--muted); flex: none; }
+.doc .dn { font-weight: 700; font-size: 13.5px; }
+.doc .ds { font-size: 12px; color: var(--muted); }
+.typing { align-self: flex-start; font-size: 13px; color: var(--muted); font-style: italic; padding: 2px 4px; }
+.composer { border-top: 1px solid var(--rule); padding: 8px 10px 10px; display: grid; gap: 7px; background: var(--surface); }
+.replying { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); border-left: 3px solid var(--accent); padding: 3px 8px; background: var(--surface-2); border-radius: 4px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+.chip { flex: none; border: 1px dashed var(--rule); background: var(--surface-2); color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip:hover { border-color: var(--accent); }
+.compose-row { display: flex; gap: 8px; align-items: flex-end; }
+.compose-row select { font: inherit; font-size: 13px; border: 1px solid var(--rule); border-radius: 8px; padding: 7px 6px; background: var(--surface); color: var(--ink); max-width: 128px; }
+.compose-row textarea { flex: 1; min-width: 0; font: inherit; font-size: 14px; resize: none; border: 1px solid var(--rule); border-radius: 8px; padding: 7px 9px; background: var(--surface); color: var(--ink); height: 38px; max-height: 120px; }
+.as { font-size: 12px; color: var(--muted); }
+
+/* backstage */
+.tabs { display: flex; gap: 2px; overflow-x: auto; padding: 0 8px; border-bottom: 1px solid var(--rule); }
+.tab { border: 0; background: none; color: var(--muted); font-weight: 600; font-size: 14px; padding: 10px 10px 9px; border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab .n { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 3px; }
+.stage { padding: 14px; display: grid; gap: 14px; min-height: 300px; }
+.stage .empty { color: var(--muted); font-size: 14px; padding: 18px 4px; }
+.group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.group-h h3 { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+.scroll-x { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--rule); padding: 5px 8px 5px 0; white-space: nowrap; }
+td { border-bottom: 1px solid var(--rule); padding: 6px 8px 6px 0; vertical-align: top; }
+td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; white-space: nowrap; background: var(--surface-2); color: var(--muted); border: 1px solid var(--rule); }
+.pill.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.pill.info { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.flag { display: block; font-size: 12.5px; color: var(--warn); margin-top: 2px; }
+.card { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
+.card-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 10px; align-items: center; }
+.card-h .t { font-family: var(--mono); font-weight: 600; }
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.log li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 13.5px; }
+.log .when { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* ---------- slip viewer ---------- */
+.overlay { position: fixed; inset: 0; background: #0b111899; display: grid; place-items: start center; overflow-y: auto; padding: max(18px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 24px max(12px, env(safe-area-inset-left, 0px)); z-index: 40; }
+.sheet { position: relative; background: var(--paper); color: var(--ink); width: min(820px, 100%); border-radius: 6px; box-shadow: 0 18px 50px #0006; padding: 50px 26px 22px; overflow: hidden; }
+.sheet .close { position: absolute; top: 10px; right: 10px; }
+.sheet .wm { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; font-family: var(--display); font-weight: 800; font-size: clamp(36px, 8vw, 72px); color: var(--paper-rule); transform: rotate(-28deg); opacity: 0.7; white-space: nowrap; }
+.sheet > * { position: relative; }
+.sheet-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; border-bottom: 2px solid var(--ink); padding-bottom: 8px; }
+.sheet-head .co { font-family: var(--display); font-weight: 800; font-size: 22px; }
+.sheet-head .addr { font-size: 12.5px; color: var(--muted); }
+.sheet-head .right { text-align: right; }
+.sheet-head .doc-t { font-family: var(--display); font-weight: 800; font-size: 18px; }
+.banner { margin: 12px 0 8px; padding: 7px 10px; text-align: center; font-weight: 700; font-size: 14px; border-radius: 4px; color: var(--surface); background: var(--warn); }
+.banner.ok { background: var(--ok); } .banner.bad { background: var(--bad); }
+.sheet h3 { font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; margin: 14px 0 4px; }
+.sheet table { font-size: 13px; }
+.sheet td, .sheet th { border-color: var(--paper-rule); }
+.sheet tr.rej td { color: var(--muted); text-decoration: line-through; }
+.sign-box { margin-top: 16px; border: 1.5px solid var(--accent); border-radius: 6px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+.sign-box .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--muted); }
+.sign-box .sig { font-family: var(--sign); font-style: italic; font-weight: 700; font-size: 30px; color: var(--accent); line-height: 1.1; margin: 2px 0; }
+.sign-box .small { font-size: 12.5px; color: var(--muted); }
+.stamp-qr { display: flex; gap: 14px; align-items: center; }
+.qr { width: 96px; height: 96px; background: #ffffff; padding: 4px; border-radius: 3px; }
+.qr img, .qr canvas { width: 88px !important; height: 88px !important; }
+.wait-box { margin-top: 16px; border: 1.5px solid var(--warn); border-radius: 6px; padding: 10px 14px; font-size: 14px; }
+
+/* ---------- explainer ---------- */
+.explain { padding-block: 26px 40px; display: grid; gap: 26px; }
+.explain h2 { font-size: 24px; font-weight: 800; }
+.explain .intro { color: var(--muted); max-width: 70ch; margin: 6px 0 0; }
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
+@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.who-card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 16px; }
+.who-card h3 { font-size: 17px; font-weight: 700; }
+.who-card .change { font-size: 12px; font-family: var(--mono); color: var(--accent); margin: 2px 0 8px; }
+.who-card ul { margin: 0; padding-left: 18px; font-size: 14.5px; }
+.who-card li + li { margin-top: 4px; }
+.two { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 22px; }
+@media (max-width: 860px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.explain table td { font-size: 14px; }
+.check { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 7px; }
+.check li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: 14.5px; }
+.check li::before { content: ""; width: 14px; height: 14px; border: 1.5px solid var(--muted); border-radius: 3px; margin-top: 3px; }
+.qs { margin: 10px 0 0; padding-left: 20px; font-size: 14.5px; }
+.qs li + li { margin-top: 5px; }
+.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule); padding-top: 14px; }
+@media (prefers-reduced-motion: no-preference) { .msg.new { animation: pop .2s ease-out; } @keyframes pop { from { transform: translateY(6px); } } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Trial run · WhatsApp purchase approvals · Nicobar · Kamorta · Diglipur</div>
+      <h1>KEC Purchase Desk</h1>
+      <p class="lede">The <b>Kailash Material</b> group keeps working as it does. Abbas forwards posts to the Purchase Desk number. It sorts them by site, checks every rate, gets <b>Dad's yes</b>, issues a signed slip, and follows the material until the site confirms it arrived.</p>
+    </div>
+    <div class="controls">
+      <label class="name-field" for="approverName">Name printed on approved slips
+        <input id="approverName" type="text" placeholder="Your father's full name" autocomplete="off">
+      </label>
+      <span class="ai" id="aiBox"><span class="dot"></span><span id="aiLabel">Checking for Claude…</span></span>
+      <span class="clock" id="clock" aria-live="polite"></span>
+      <button class="btn ghost-dark small" id="resetBtn" type="button">Start over</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap sim">
+  <section class="panel coach" aria-labelledby="coachTitle">
+    <div class="panel-head"><h2 id="coachTitle">Trial run, step by step</h2><span class="eyebrow" id="progress"></span></div>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <section class="panel phone" aria-label="WhatsApp chats">
+    <div class="chats" id="chatTabs" role="tablist" aria-label="Chats"></div>
+    <div class="chat-head" id="chatHead"></div>
+    <div class="msgs" id="msgs" aria-live="polite"></div>
+    <div class="composer" id="composer">
+      <div class="replying" id="replying" hidden><span id="replyingText"></span><button class="link-btn" id="cancelReply" type="button">Cancel</button></div>
+      <div class="chips" id="chips"></div>
+      <div class="compose-row">
+        <select id="sender" aria-label="Post in the group as"></select>
+        <textarea id="input" rows="1" placeholder="Type a message"></textarea>
+        <button class="btn primary" id="sendBtn" type="button">Send</button>
+      </div>
+      <div class="as" id="asLine"></div>
+    </div>
+  </section>
+
+  <section class="panel backstage" aria-labelledby="stageTitle">
+    <div class="panel-head"><h2 id="stageTitle">Behind the scenes</h2><span class="eyebrow">Google Sheet + Drive, live</span></div>
+    <div class="tabs" id="stageTabs" role="tablist"></div>
+    <div class="stage" id="stage"></div>
+  </section>
+</main>
+
+<section class="wrap explain" aria-labelledby="howTitle">
+  <div>
+    <h2 id="howTitle">How it works</h2>
+    <p class="intro">Nobody has to learn a new app. The group stays the place where work happens. The Purchase Desk is one extra WhatsApp number that only messages the person who has to act.</p>
+    <div class="cols">
+      <div class="who-card">
+        <h3>Engineers and supervisors</h3>
+        <div class="change">New: one tap per delivery</div>
+        <ul>
+          <li>Keep posting requirements in the group: text, photos, Hindi voice notes.</li>
+          <li>When material is sent, the Purchase Desk lists it. Tap <b>All received</b>, or <b>Short/damaged</b> and type what came.</li>
+          <li>One reminder if a delivery isn't confirmed in 2 days.</li>
+        </ul>
+      </div>
+      <div class="who-card">
+        <h3>Abbas</h3>
+        <div class="change">New: forward, then type rates</div>
+        <ul>
+          <li>Once or twice a day, select the new posts in the group and forward them together. One summary comes back, sorted by site.</li>
+          <li>Writes rates in his chat with the bot: <span class="mono">N1 Om Traders 420</span>.</li>
+          <li>Forwards his dispatch posts too. Gets a to-do list every morning.</li>
+        </ul>
+      </div>
+      <div class="who-card">
+        <h3>Dad</h3>
+        <div class="change">New: approves the priced slip</div>
+        <ul>
+          <li>Gets each slip with a PDF and alerts: rate up, new vendor, bought recently.</li>
+          <li>Replies the way he does now: <b>haan</b>, <b>Abbas do it</b>, <b>3 nahi</b>, or a question.</li>
+          <li>His yes issues the slip with his name, stamp and a verification code. A site summary arrives every evening.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div>
+      <h2>What stops leakage</h2>
+      <div class="scroll-x" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Where money leaks</th><th>What the Purchase Desk does</th></tr></thead>
+          <tbody>
+            <tr><td>Approving a need without a price</td><td>Dad approves the priced slip, so he sees the rate and vendor before saying yes.</td></tr>
+            <tr><td>Inflated rates</td><td>Every line is compared with the last approved rate for that item. More than 5% higher is flagged.</td></tr>
+            <tr><td>Friendly or new vendors</td><td>Vendors not on the approved list are flagged.</td></tr>
+            <tr><td>Buying twice</td><td>Flags the same item bought for the same site in the last 10 days.</td></tr>
+            <tr><td>Edited or forged slips</td><td>Each approved slip carries a verification code. The QR code opens the original record, so any change shows up.</td></tr>
+            <tr><td>Material that never arrives</td><td>The site confirms what came. Shortages go to Abbas and Dad at once.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <h2>What the AI does, and what it never does</h2>
+      <p class="intro">Claude reads messy posts, Hinglish, photos of handwritten lists and Hindi voice notes, and turns them into clean items for the right site. It also matches dispatch lists to approved items.</p>
+      <p class="intro">Approvals are never decided by AI. Fixed rules read Dad's reply, only his number can approve, and a reply to an old version of a slip does nothing. Voice-note approvals and 👍 reactions always need a confirm tap.</p>
+    </div>
+  </div>
+
+  <div class="two">
+    <div>
+      <h2>To go live</h2>
+      <ul class="check">
+        <li>A new SIM for the Purchase Desk number (not already on WhatsApp)</li>
+        <li>A Meta WhatsApp Business app and one approved message template</li>
+        <li>A small server (about ₹500–800 a month) with HTTPS</li>
+        <li>One Google sign-in, which creates the Drive folder and Purchase Register sheet</li>
+        <li>Claude and Sarvam API keys (reading messages, Hindi voice notes)</li>
+        <li>Everyone sends "hi" to the new number once</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Answers we need</h2>
+      <ol class="qs">
+        <li>Your father's full name, initials and title, as printed on approved slips.</li>
+        <li>Does "N/C" mean Nancowry (Kamorta)? If yes, the bot recognises it automatically.</li>
+        <li>Should Raseed get Diglipur delivery messages?</li>
+        <li>KEC's full registered name for the slip header.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p class="foot">This trial runs entirely in your browser with the bot's real rules: site sorting, price and vendor checks, Dad's reply rules, signed slips, dispatches, delivery confirmation and stock. In the real bot, photos and voice notes are read too, and the register is a Google Sheet. One difference: a forwarded WhatsApp message doesn't carry the original sender's name, so the real bot sends each site a copy of what was logged for it. That copy is the check.</p>
+</section>
+
+<div class="overlay" id="overlay" hidden role="dialog" aria-modal="true" aria-label="Purchase slip">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+"use strict";
+/* ============================================================ roster */
+const SITES = [
+  { code: "NIC", name: "Nicobar", letter: "N", aliases: ["car nicobar", "c/n", "carnic", "nicobar"] },
+  { code: "KAM", name: "Kamorta", letter: "K", aliases: ["kamorta", "komoota"] },
+  { code: "DIG", name: "Diglipur", letter: "D", aliases: ["diglipur"] },
+];
+const PEOPLE = {
+  chandramohan: { name: "Chandramohan", role: "engineer", site: "NIC", color: "--p1" },
+  tambi: { name: "Tambi Uncle", role: "engineer", site: "KAM", color: "--p2" },
+  siddhu: { name: "Siddhu", role: "engineer", site: "DIG", color: "--p3" },
+  ami: { name: "Ami", role: "engineer", site: "DIG", color: "--p4" },
+  abbas: { name: "Abbas", role: "logistics", color: "--p5" },
+  dad: { name: "Dad", role: "approver", color: "--p6" },
+};
+const CHAT_ORDER = ["group", "abbas", "dad", "chandramohan", "tambi", "siddhu", "ami"];
+const VENDORS = [
+  { name: "Om Traders", aliases: ["om", "ome", "om trader", "om traders"] },
+  { name: "Hira Metals", aliases: ["hira", "hera", "heera", "hera metals", "hira metals"] },
+];
+const site = (code) => SITES.find((s) => s.code === code);
+const siteName = (code) => (site(code) || {}).name || code;
+const engineersFor = (code) => Object.keys(PEOPLE).filter((k) => PEOPLE[k].role === "engineer" && PEOPLE[k].site === code);
+
+/* ============================================================ helpers */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const wa = (s) => esc(s).replace(/\*([^*\n]+)\*/g, "<b>$1</b>").replace(/(^|[\s(])_([^_\n]+)_/g, "$1<i>$2</i>").replace(/~([^~\n]+)~/g, "<s>$1</s>").replace(/\n/g, "<br>");
+function inr(n) {
+  const neg = n < 0; let s = String(Math.round(Math.abs(n)));
+  if (s.length > 3) { let head = s.slice(0, -3); const tail = s.slice(-3); const g = []; while (head.length > 2) { g.unshift(head.slice(-2)); head = head.slice(0, -2); } if (head) g.unshift(head); s = g.join(",") + "," + tail; }
+  return (neg ? "-" : "") + "₹" + s;
+}
+const lakh = (n) => n >= 100000 ? "₹" + (n / 100000).toFixed(2) + " L" : inr(n);
+const q = (n) => (Number.isInteger(n) ? String(n) : String(+n.toFixed(2)));
+const key = (name) => name.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const MIN = 60000, DAY = 86400000;
+const IST = { timeZone: "Asia/Kolkata" };
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString("en-IN", { ...IST, hour: "numeric", minute: "2-digit" });
+const fmtDay = (ms) => new Date(ms).toLocaleDateString("en-IN", { ...IST, day: "numeric", month: "short" });
+const fmtDayLong = (ms) => new Date(ms).toLocaleDateString("en-IN", { ...IST, weekday: "short", day: "numeric", month: "short" });
+const T0 = Date.parse("2026-10-19T09:00:00+05:30");
+
+/* ============================================================ state */
+let S;
+function freshState() {
+  const st = {
+    now: T0,
+    seq: 1,
+    approverName: "",
+    counters: { req: { NIC: 0, KAM: 0, DIG: 0 }, ref: { NIC: 0, KAM: 0, DIG: 0 }, slip: 1, dsp: 0 },
+    reqs: [], slips: [], dispatches: [],
+    history: [
+      { key: "cement opc 53 grade", name: "Cement OPC 53 grade", unit: "bag", vendor: "Om Traders", rate: 395, at: Date.parse("2026-10-10T11:00:00+05:30"), slip: "PS-0001", site: "NIC", qty: 40 },
+      { key: "welding goggles", name: "Welding goggles", unit: "nos", vendor: "Hira Metals", rate: 150, at: Date.parse("2026-10-10T11:00:00+05:30"), slip: "PS-0001", site: "DIG", qty: 6 },
+    ],
+    ledger: [
+      { site: "NIC", key: "cement opc 53 grade", name: "Cement OPC 53 grade", unit: "bag", qty: 40, kind: "Received", ref: "PS-0001", at: Date.parse("2026-10-13T15:00:00+05:30") },
+      { site: "DIG", key: "welding goggles", name: "Welding goggles", unit: "nos", qty: 6, kind: "Received", ref: "PS-0001", at: Date.parse("2026-10-12T12:00:00+05:30") },
+      { site: "DIG", key: "welding goggles", name: "Welding goggles", unit: "nos", qty: -6, kind: "Used", ref: "", at: Date.parse("2026-10-17T18:00:00+05:30") },
+    ],
+    log: [],
+    chats: { group: [], abbas: [], dad: [], chandramohan: [], tambi: [], siddhu: [], ami: [] },
+    unread: {},
+    batch: null,
+    stash: {},
+    draftSlip: null,
+    dadConfirm: null, dadAsk: null, awaitShort: {},
+    flags: { viewedSlip: false, morning: false, evening: false },
+    ui: { chat: "group", tab: "reqs", replyTo: null, step: 0 },
+  };
+  const g = (who, text, at, extra = {}) => st.chats.group.push({ id: "g" + st.seq++, from: who, text, at, ...extra });
+  g("ami", "Diglipur site requirements --\n\n1). Welding goggles 10 nos", Date.parse("2026-10-18T08:08:00+05:30"));
+  g("chandramohan", "Car Nicobar - cement OPC 53 grade 50 bag, binding wire 25 kg, waste pipe coupler 1 no", Date.parse("2026-10-18T09:40:00+05:30"));
+  const t = st.seq;
+  g("tambi", "To, KEC, P/B, like this type of Ply for KEC house at N/C = 1 no 8ft×4ft", Date.parse("2026-10-18T21:30:00+05:30"), { photo: "Photo: laminated ply door" });
+  g("tambi", "Remainder N/C @KEC Abbas", Date.parse("2026-10-18T21:31:00+05:30"));
+  g("dad", "How many, Abbas do it", Date.parse("2026-10-18T21:58:00+05:30"), { quote: { from: "Tambi Uncle", text: "like this type of Ply for KEC house at N/C = 1 no…" } });
+  st.chats.abbas.push({ id: "n" + st.seq++, note: "Abbas's own chat with the Purchase Desk number. Forward group posts here, write rates, record dispatches." });
+  st.chats.dad.push({ id: "n" + st.seq++, note: "Dad's chat with the Purchase Desk. Priced slips arrive here for his yes." });
+  for (const k of ["chandramohan", "tambi", "siddhu", "ami"]) st.chats[k].push({ id: "n" + st.seq++, note: `${PEOPLE[k].name}'s chat with the Purchase Desk. Delivery checks arrive here. Requirements can still go in the group.` });
+  void t;
+  return st;
+}
+function save() { try { localStorage.setItem("kec-trial-v1", JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
+function load() { try { const raw = localStorage.getItem("kec-trial-v1"); if (raw) return JSON.parse(raw); } catch (e) { /* ignore */ } return null; }
+
+const approver = () => (S.approverName.trim() || "Dad");
+function tick(min = 3) { S.now += min * MIN; }
+function audit(who, what) { S.log.push({ at: S.now, who, what }); }
+function push(chat, msg) {
+  const m = { id: "m" + S.seq++, at: S.now, ...msg };
+  S.chats[chat].push(m);
+  if (S.ui.chat !== chat) S.unread[chat] = (S.unread[chat] || 0) + 1;
+  return m;
+}
+const bot = (chat, text, extra = {}) => push(chat, { from: "bot", text, ...extra });
+
+/* ============================================================ reading requirements */
+const UNIT_MAP = { bag: "bag", bags: "bag", bori: "bag", katta: "bag", kg: "kg", kgs: "kg", kilo: "kg", mt: "mt", ton: "mt", tons: "mt", tonne: "mt",
+  no: "nos", nos: "nos", number: "nos", numbers: "nos", pc: "pcs", pcs: "pcs", piece: "pcs", pieces: "pcs", sheet: "sheet", sheets: "sheet",
+  truck: "truck", trucks: "truck", load: "load", brass: "brass", cft: "cft", litre: "litre", liter: "litre", ltr: "litre", l: "litre",
+  m: "m", meter: "m", metre: "m", mtr: "m", rft: "rft", ft: "rft", packet: "packet", packets: "packet", pkt: "packet", set: "set", sets: "set",
+  box: "box", roll: "roll", rolls: "roll", bundle: "bundle", g: "g", gm: "g", gram: "g", grams: "g", drum: "drum", length: "length" };
+const UNIT_RE = Object.keys(UNIT_MAP).sort((a, b) => b.length - a.length).map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+const QTY_FIRST = new RegExp(`^(\\d+(?:\\.\\d+)?)\\s*(${UNIT_RE})?\\b\\.?\\s*(?:of\\s+)?([a-z].*)$`, "i");
+const ITEM_LINE = new RegExp(`^(.*[a-z].*?)\\s*[-:=]?\\s*(\\d+(?:\\.\\d+)?)\\s*(${UNIT_RE})?\\b\\.?\\s*(.*)$`, "i");
+const SITE_PREFIX = new RegExp(`^\\s*(?:${SITES.flatMap((s) => s.aliases).map((a) => a.replace(/[/]/g, "\\/")).join("|")})\\s*(?:site|sector)?\\s*[-:–]\\s*`, "i");
+
+function findSiteInText(text) {
+  const t = text.toLowerCase(); const hits = new Set();
+  for (const s of SITES) for (const a of s.aliases) {
+    const re = new RegExp(`(?<![a-z0-9])${a.replace(/[/]/g, "\\/")}(?![a-z0-9])`);
+    if (re.test(t)) hits.add(s.code);
+  }
+  return hits.size === 1 ? [...hits][0] : null;
+}
+
+function offlineRead(text) {
+  const items = [];
+  const urgent = /\b(urgent|jaldi|asap|emergency)\b/i.test(text);
+  const parts = text.split(/[\n;]|,(?!\d)/).map((p) => p.replace(/^\s*\d+\s*[.)]+\s*(?=[^\d\s])/, "").replace(SITE_PREFIX, "").trim()).filter(Boolean);
+  for (let line of parts) {
+    const low = line.toLowerCase();
+    if (!/\d/.test(low)) continue; // headings, addresses ("To", "KEC"), reminders
+    line = line.replace(/^(?:like\s+)?this\s+type\s+of\s+/i, "").replace(/^like\s+/i, "");
+    let dims = "";  // sizes like 8ft×4ft are part of the item, not its quantity
+    line = line.replace(/\d+(?:\.\d+)?\s*(?:ft|feet|mm|inch|in|"|')?\s*[x×*]\s*\d+(?:\.\d+)?\s*(?:ft|feet|mm|inch|in|"|')?/gi, (m) => { dims = m.replace(/\s+/g, ""); return " "; });
+    let m = line.match(QTY_FIRST), name, qty, unit, spec = "";
+    if (m) { qty = +m[1]; unit = m[2]; name = m[3]; }
+    else if ((m = line.match(ITEM_LINE))) { name = m[1]; qty = +m[2]; unit = m[3]; spec = (m[4] || "").trim(); }
+    else continue;
+    name = name.replace(/\s+/g, " ").replace(/[\s=:\-–]+$/, "").replace(/\b(?:for|at)\s+kec\b.*$/i, "").trim();
+    if (!name || !/[a-z]/i.test(name)) continue;
+    name = name[0].toUpperCase() + name.slice(1);
+    spec = [dims, spec].filter(Boolean).join(" ");
+    items.push({ name, qty, unit: UNIT_MAP[(unit || "nos").toLowerCase()] || "nos", spec });
+  }
+  return { items, urgent, by: "offline" };
+}
+
+let sampleFn = null, aiWanted = true, aiNote = "", aiChecked = false;
+async function readRequirement(text) {
+  if (sampleFn && aiWanted) {
+    const prompt = [
+      "You read material requirement messages that site engineers of a construction company in the Andaman & Nicobar Islands post in a WhatsApp group. Messages may be English, Hindi or Hinglish, often abbreviated.",
+      "Extract every material, tool or consumable requested.",
+      'Reply with only JSON: {"items":[{"name":"clear English name with size/spec","qty":number (0 if not given),"unit":"one of bag, kg, mt, nos, pcs, sheet, truck, brass, cft, litre, m, rft, packet, set, box, roll, g","spec":"extra detail or empty string"}],"urgent":true or false}',
+      'Ignore greetings, headings like "Diglipur site requirements", addresses like "To, KEC, P/B", @mentions, reminders and chit-chat. If there are no materials, reply {"items":[],"urgent":false}.',
+      "Hindi terms: sariya = TMT bar, gitti/rodi = stone aggregate, balu/reti = sand, eent = brick, kil = nails.",
+      "", "MESSAGE:", text,
+    ].join("\n");
+    try {
+      const r = await sampleFn.json(prompt, { modelTier: "quick" });
+      const items = Array.isArray(r && r.items) ? r.items.filter((i) => i && i.name).map((i) => ({
+        name: String(i.name).trim(), qty: Math.max(0, Number(i.qty) || 0), unit: UNIT_MAP[String(i.unit || "nos").toLowerCase()] || String(i.unit || "nos").toLowerCase(), spec: String(i.spec || "").trim(),
+      })) : [];
+      return { items, urgent: !!(r && r.urgent), by: "claude" };
+    } catch (e) {
+      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(e && e.code)) {
+        sampleFn = null; aiNote = "Claude isn't available here, so the offline reader is used.";
+      } else if (e && e.code === "rate_limited") { aiNote = "Claude is busy; the offline reader read that one."; }
+      else { aiNote = "Claude couldn't read that one; the offline reader did."; }
+      renderAi();
+    }
+  }
+  return offlineRead(text);
+}
+
+/* ============================================================ requisitions */
+function createReq(siteCode, parsed, source) {
+  const s = site(siteCode);
+  S.counters.req[siteCode]++;
+  const req = { id: "r" + S.seq++, no: `REQ-${siteCode}-${String(S.counters.req[siteCode]).padStart(4, "0")}`, site: siteCode, source, by: parsed.by, urgent: parsed.urgent, at: S.now, items: [] };
+  for (const it of parsed.items) {
+    S.counters.ref[siteCode]++;
+    req.items.push({ ref: s.letter + S.counters.ref[siteCode], name: it.name, key: key(it.name), qty: it.qty, unit: it.unit, spec: it.spec || "", status: "OPEN" });
+  }
+  S.reqs.push(req);
+  audit("Abbas", `Logged ${req.no} for ${s.name} from the group (${plural(req.items.length, "item")}, read by ${parsed.by === "claude" ? "Claude" : "offline reader"})`);
+  return req;
+}
+const allItems = () => S.reqs.flatMap((r) => r.items.map((i) => ({ ...i, site: r.site, reqNo: r.no, at: r.at, urgent: r.urgent })));
+const itemByRef = (ref) => { for (const r of S.reqs) for (const i of r.items) if (i.ref.toUpperCase() === ref.toUpperCase()) return { item: i, req: r }; return null; };
+const openItems = () => allItems().filter((i) => i.status === "OPEN");
+
+/* ---- Abbas forwards group posts ---- */
+async function forwardFromGroup(groupMsgIds) {
+  for (const gid of groupMsgIds) {
+    const g = S.chats.group.find((m) => m.id === gid);
+    if (!g) continue;
+    g.fwdDone = true;
+    tick(1);
+    push("abbas", { from: "abbas", text: g.text, forwarded: true, photo: g.photo });
+    await abbasSays(g.text, { forwarded: true, photo: g.photo });
+  }
+  flushBatch();
+}
+
+async function logForwarded(text, photo) {
+  S.batch = S.batch || { reqs: [], skipped: [], unassigned: [] };
+  const preview = (text.trim().split("\n")[0] || (photo ? "(photo)" : "")).slice(0, 60);
+  const siteCode = findSiteInText(text);
+  const parsed = await readRequirement(text);
+  if (!parsed.items.length) { S.batch.skipped.push(preview); return; }
+  if (!siteCode) {
+    const token = "t" + S.seq++;
+    S.stash[token] = { parsed, preview };
+    S.batch.unassigned.push(token);
+    return;
+  }
+  S.batch.reqs.push(createReq(siteCode, parsed, "group").id);
+}
+
+function flushBatch() {
+  const b = S.batch; S.batch = null;
+  if (!b || (!b.reqs.length && !b.skipped.length && !b.unassigned.length)) return;
+  const reqs = b.reqs.map((id) => S.reqs.find((r) => r.id === id));
+  const n = reqs.length + b.skipped.length + b.unassigned.length;
+  const lines = [`📥 *Logged from the group* — ${plural(n, "message")}`];
+  for (const s of SITES) for (const r of reqs.filter((x) => x.site === s.code)) {
+    lines.push("", `📍 *${s.name.toUpperCase()}* — ${r.no}${r.urgent ? " 🔴 URGENT" : ""}`);
+    for (const i of r.items) lines.push(`${i.ref} ${i.name}${i.spec ? " (" + i.spec + ")" : ""} — ${i.qty ? q(i.qty) + " " + i.unit : "qty ?"}`);
+  }
+  if (b.skipped.length) lines.push("", "⚪ No materials found, not logged: " + b.skipped.slice(0, 5).map((s) => `"${s}"`).join("; "));
+  if (reqs.length && reqs[0].items.length) lines.push("", `To fix: *${reqs[0].items[0].ref} 60 ${reqs[0].items[0].unit}* (change qty) · *remove ${reqs[0].items[0].ref}*`);
+  if (reqs.length || b.skipped.length) bot("abbas", lines.join("\n"));
+  for (const token of b.unassigned) {
+    bot("abbas", `Which site is this for?\n_${S.stash[token].preview}_`, { buttons: SITES.map((s) => ({ label: s.name, act: "site", args: { token, site: s.code } })) });
+  }
+  notifySites(reqs);
+}
+function notifySites(reqs) {
+  const bySite = {};
+  for (const r of reqs) (bySite[r.site] = bySite[r.site] || []).push(r);
+  for (const [code, rs] of Object.entries(bySite)) {
+    const list = rs.flatMap((r) => r.items.map((i) => `${i.ref} ${i.name} — ${q(i.qty)} ${i.unit}`)).join("\n");
+    for (const e of engineersFor(code)) bot(e, `ℹ️ Abbas logged these requirements for ${siteName(code)} from the group:\n\n${list}\n\nIf anything is wrong, tell him.`);
+  }
+}
+function siteChosen(token, code) {
+  const st = S.stash[token];
+  if (!st) { bot("abbas", "Already done."); return; }
+  delete S.stash[token];
+  tick(1);
+  const req = createReq(code, st.parsed, "group");
+  bot("abbas", `📥 *Logged for ${siteName(code)}* — ${req.no}\n` + req.items.map((i) => `${i.ref} ${i.name}${i.spec ? " (" + i.spec + ")" : ""} — ${q(i.qty)} ${i.unit}`).join("\n"));
+  notifySites([req]);
+}
+
+/* ---- what Abbas types ---- */
+const DISPATCH_WORDS = /\b(dispatch(?:ed)?|loaded|handed over|by hand|departed|shipped|sector)\b/i;
+async function abbasSays(text, opts = {}) {
+  const t = text.trim().toLowerCase();
+  if (!opts.forwarded) {
+    flushBatch();
+    const quoted = opts.replyTo && findMsg("abbas", opts.replyTo);
+    if (quoted && quoted.kind === "query") { relayToDad(text, quoted.slipId); return; }
+    if (/^(list|open|pending|items)$/.test(t)) return sendList();
+    if (/^(dispatch|dispatched|sent|loaded)\b/.test(t) && /ps[\s\-#]*0*\d+/i.test(t)) return dispatchCommand(text);
+    if (editOpenItem(text)) return;
+    if (/^(slips|status)$/.test(t)) return slipStatus();
+  }
+  const hasRefs = /\b[NKD]\d{1,4}\b/i.test(text);
+  if (DISPATCH_WORDS.test(text) && !hasRefs) return dispatchReport(text);
+  if (opts.forwarded) return logForwarded(text, opts.photo);
+  const m = text.match(/^\s*([a-z /]{3,20})\s*:\s*([\s\S]+)$/i);
+  if (m && findSiteInText(m[1])) { S.batch = null; await logForwarded(text); flushBatch(); return; }
+  return slipInput(text);
+}
+function editOpenItem(text) {
+  let m = text.match(/^\s*(?:remove|cancel|delete|hatao)\s+((?:[NKD]\d+[\s,]*)+)$/i);
+  if (m) {
+    const done = [];
+    for (const ref of m[1].match(/[NKD]\d+/gi)) { const f = itemByRef(ref); if (f && f.item.status === "OPEN") { f.item.status = "CANCELLED"; done.push(`${f.item.ref} ${f.item.name}`); } }
+    audit("Abbas", `Removed ${done.join(", ") || "nothing"}`);
+    bot("abbas", done.length ? "🗑 Removed: " + done.join(", ") : "Nothing removed — those refs are not open.");
+    return true;
+  }
+  m = text.match(new RegExp(`^\\s*([NKD]\\d+)\\s+(\\d+(?:\\.\\d+)?)\\s*(${UNIT_RE})\\.?\\s*$`, "i"));
+  if (m) {
+    const f = itemByRef(m[1]);
+    if (!f || f.item.status !== "OPEN") { bot("abbas", `${m[1].toUpperCase()} is not an open requirement.`); return true; }
+    f.item.qty = +m[2]; f.item.unit = UNIT_MAP[m[3].toLowerCase()] || m[3];
+    audit("Abbas", `Changed ${f.item.ref} to ${m[2]} ${f.item.unit}`);
+    bot("abbas", `✏️ ${f.item.ref} ${f.item.name} — now ${m[2]} ${f.item.unit}.`);
+    return true;
+  }
+  return false;
+}
+function sendList() {
+  const items = openItems();
+  if (!items.length) { bot("abbas", "✅ No open requirements. Everything requested is on a slip."); return; }
+  const lines = [`📋 *Open requirements* (${plural(items.length, "item")})`];
+  for (const s of SITES) {
+    const rows = items.filter((i) => i.site === s.code);
+    if (!rows.length) continue;
+    lines.push("", `📍 *${s.name.toUpperCase()}* — ${engineersFor(s.code).map((k) => PEOPLE[k].name).join(", ")}`);
+    for (const i of rows) lines.push(`*${i.ref}* ${i.name} — ${q(i.qty)} ${i.unit}${i.urgent ? " 🔴" : ""}`);
+  }
+  lines.push("", "To make a purchase slip, reply like:", `_${items[0].ref} Om Traders 420_`);
+  bot("abbas", lines.join("\n"));
+}
+function slipStatus() {
+  const rows = S.slips.filter((s) => s.status !== "CANCELLED").slice(-8).reverse();
+  bot("abbas", rows.length ? "🧾 *Recent slips*\n" + rows.map((s) => `${s.no} ${s.status.toLowerCase()} · ${inr(total(s))}`).join("\n") : "No slips yet.");
+}
+
+/* ============================================================ slips */
+const total = (s) => s.lines.reduce((a, l) => a + l.amount, 0);
+const approvedTotal = (s) => s.lines.filter((l) => l.status === "APPROVED").reduce((a, l) => a + l.amount, 0);
+function matchVendor(raw) {
+  const t = raw.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+  return VENDORS.find((v) => v.name.toLowerCase() === t || v.aliases.includes(t) || t.startsWith(v.aliases[0] + " "));
+}
+function slipInput(text) {
+  const draft = S.draftSlip && S.slips.find((s) => s.id === S.draftSlip);
+  const lines = draft ? draft.lines.map((l) => ({ ...l })) : [];
+  const problems = [];
+  const LINE = /^\s*((?:[NKD]\d+[\s,&]*(?:and\s+)?)+)\s*[-:]?\s*([a-z][a-z .&']*?)\s*@?\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?)\s*(?:\/\s*\w+)?\s*$/i;
+  const rm = text.match(/^\s*remove\s+line\s+(\d+)\s*$/i);
+  if (rm && draft) { lines.splice(+rm[1] - 1, 1); }
+  else for (const raw of text.split(/[\n;]/).map((x) => x.trim()).filter(Boolean)) {
+    const m = raw.match(LINE);
+    if (!m) { problems.push(`Not understood: "${raw}"`); continue; }
+    const vendorRaw = m[2].trim(); const vm = matchVendor(vendorRaw);
+    const vendor = vm ? vm.name : vendorRaw.replace(/\b\w/g, (c) => c.toUpperCase());
+    for (const ref of m[1].match(/[NKD]\d+/gi)) {
+      const f = itemByRef(ref);
+      if (!f || f.item.status !== "OPEN") { problems.push(`${ref.toUpperCase()} is not an open requirement (send *list*)`); continue; }
+      const i = lines.findIndex((l) => l.ref === f.item.ref);
+      const line = { ref: f.item.ref, site: f.req.site, reqNo: f.req.no, name: f.item.name, key: f.item.key, qty: f.item.qty, unit: f.item.unit, vendor, rate: +m[3] };
+      if (i >= 0) lines[i] = line; else lines.push(line);
+    }
+  }
+  if (!lines.length) {
+    bot("abbas", "I couldn't build a purchase slip from that." + (problems.length ? "\n\n• " + problems.join("\n• ") : "") + "\n\nFormat: _N1 Om Traders 420_ (ref from *list*, vendor, rate per unit)");
+    return;
+  }
+  const order = { NIC: 0, KAM: 1, DIG: 2 };
+  lines.sort((a, b) => order[a.site] - order[b.site]);
+  for (const [n, l] of lines.entries()) { l.n = n + 1; l.amount = Math.round(l.qty * l.rate); l.flags = checks(l); l.status = "PENDING"; }
+  let slip = draft;
+  if (!slip) { S.counters.slip++; slip = { id: "s" + S.seq++, no: "PS-" + String(S.counters.slip).padStart(4, "0"), version: 1, status: "DRAFT", createdAt: S.now, lines: [] }; S.slips.push(slip); S.draftSlip = slip.id; }
+  slip.lines = lines;
+  audit("Abbas", `Drafted ${slip.no}: ${plural(lines.length, "line")}, ${inr(total(slip))}`);
+  let body = slipText(slip, "draft");
+  if (problems.length) body += "\n\n❓ " + problems.join("\n❓ ");
+  bot("abbas", body, { slipId: slip.id });
+  const nf = lines.reduce((a, l) => a + l.flags.length, 0);
+  bot("abbas", `*${slip.no}* · ${inr(total(slip))} · ${plural(lines.length, "line")}${nf ? `\n⚠️ ${plural(nf, "alert")} — see above` : ""}\n\nSend more lines or changes, or send it for approval.`, {
+    buttons: [{ label: "📤 Send for approval", act: "slipSend", args: { id: slip.id } }, { label: "🗑 Discard", act: "slipDiscard", args: { id: slip.id } }],
+  });
+}
+function checks(l) {
+  const flags = [];
+  const last = [...S.history].filter((h) => h.key === l.key && h.unit === l.unit).sort((a, b) => b.at - a.at)[0];
+  if (last && l.rate > last.rate * 1.05) flags.push({ code: "PRICE_UP", text: `Rate ${inr(l.rate)} is ${((l.rate / last.rate - 1) * 100).toFixed(1)}% above last ${inr(last.rate)} (${last.vendor}, ${fmtDay(last.at)})` });
+  if (!VENDORS.some((v) => v.name === l.vendor) && !S.history.some((h) => h.vendor === l.vendor)) flags.push({ code: "NEW_VENDOR", text: `New vendor "${l.vendor}" — not on the approved vendor list` });
+  const recent = [...S.history].filter((h) => h.key === l.key && h.site === l.site && S.now - h.at <= 10 * DAY).sort((a, b) => b.at - a.at)[0];
+  if (recent) flags.push({ code: "RECENT", text: `Already bought ${q(recent.qty)} ${recent.unit} for ${siteName(l.site)} on ${fmtDay(recent.at)} (${recent.slip})` });
+  l.lastRate = last ? last.rate : null;
+  return flags;
+}
+function slipText(slip, title, showStatus = false) {
+  const out = [`🧾 *${slip.no}* — ${title}`, `_${plural(slip.lines.length, "line")} · by Abbas_`];
+  for (const s of SITES) {
+    const ls = slip.lines.filter((l) => l.site === s.code);
+    if (!ls.length) continue;
+    out.push("", `📍 *${s.name.toUpperCase()}*`);
+    for (const l of ls) {
+      const st = showStatus ? (l.status === "APPROVED" ? " ✅" : l.status === "REJECTED" ? " ❌" : "") : "";
+      const nm = showStatus && l.status === "REJECTED" ? `~${l.name}~` : l.name;
+      out.push(`${l.n}. ${nm} — ${q(l.qty)} ${l.unit} × ${inr(l.rate)} = *${inr(l.amount)}*${st}`);
+      out.push(`    ${l.vendor} · ${l.ref}${l.lastRate && !l.flags.some((f) => f.code === "PRICE_UP") ? " · last " + inr(l.lastRate) : ""}`);
+      for (const f of l.flags) out.push(`    ⚠️ ${f.text}`);
+    }
+  }
+  out.push("", showStatus && slip.status === "PARTIAL" ? `*Approved: ${inr(approvedTotal(slip))}* (of ${inr(total(slip))})` : `*Total: ${inr(total(slip))}*`);
+  return out.join("\n");
+}
+function slipSend(id) {
+  const slip = S.slips.find((s) => s.id === id);
+  if (!slip || slip.status !== "DRAFT") { bot("abbas", `${slip ? slip.no : "That slip"} is already ${slip ? slip.status.toLowerCase() : "gone"}.`); return; }
+  tick(2);
+  slip.version = slip.submittedAt ? slip.version + 1 : slip.version;
+  slip.status = "PENDING"; slip.submittedAt = S.now; S.draftSlip = null;
+  for (const l of slip.lines) { const f = itemByRef(l.ref); if (f) f.item.status = "IN_SLIP"; }
+  audit("Abbas", `Sent ${slip.no} (${inr(total(slip))}) to ${approver()} for approval`);
+  sendApprovalCard(slip);
+  bot("abbas", `📤 *${slip.no}* (${inr(total(slip))}) sent to ${approver()} for approval.`);
+}
+function sendApprovalCard(slip, prefix = "") {
+  const ent = { slipId: slip.id, version: slip.version };
+  bot("dad", "", { doc: { slipId: slip.id, label: `${slip.no} — for your approval` }, ...ent });
+  bot("dad", (prefix ? prefix + "\n\n" : "") + slipText(slip, "for your approval"), ent);
+  const nf = slip.lines.reduce((a, l) => a + l.flags.length, 0);
+  bot("dad", `*${slip.no}* · ${inr(total(slip))} · ${plural(slip.lines.length, "line")}${nf ? `\n⚠️ ${plural(nf, "alert")} — see the list above` : ""}\n\nReply *haan* / *yes* to approve all, *no* to reject.\nTo drop a line: *3 nahi*. To approve some: *only 1 2*.\nAnything else you type goes to Abbas as a question.`, {
+    ...ent, buttons: [
+      { label: "✅ Approve all", act: "dadBtn", args: { id: slip.id, v: slip.version, kind: "APPROVE_ALL" } },
+      { label: "❌ Reject", act: "dadBtn", args: { id: slip.id, v: slip.version, kind: "REJECT_ALL" } },
+      { label: "❓ Ask Abbas", act: "dadAsk", args: { id: slip.id } },
+    ],
+  });
+}
+
+/* ============================================================ Dad's reply rules (same as the bot) */
+const APPROVE = new Set(["yes", "y", "yep", "yeah", "ok", "okay", "okk", "k", "approve", "approved", "approval", "go", "goahead", "doit", "proceed", "confirm", "confirmed", "done", "fine", "sure", "accept",
+  "haan", "han", "haa", "ha", "hanji", "haanji", "ji", "theek", "thik", "theekhai", "thikhai", "sahi", "chalega", "kardo", "karo", "lelo", "le", "kharido", "manjoor", "manzoor",
+  "हाँ", "हां", "हा", "ठीक", "जी", "करो", "लेलो", "मंजूर", "👍", "✅", "👌", "🙏"]);
+const REJECT = new Set(["no", "n", "nope", "reject", "rejected", "decline", "declined", "cancel", "dont", "don't", "nahi", "nahin", "nai", "na", "mat", "don", "matkaro", "band", "radd",
+  "नहीं", "नही", "ना", "मत", "रद्द", "❌", "👎", "✖"]);
+const EXCEPT = new Set(["except", "but", "excluding", "without", "minus", "chhod", "chod", "chhodke", "chodke", "bina", "छोड़", "छोड़कर", "बिना"]);
+const ONLY = new Set(["only", "just", "sirf", "bas", "keval", "सिर्फ", "बस", "केवल"]);
+const ALL = new Set(["all", "sab", "sabhi", "saare", "sare", "everything", "full", "सब", "सभी"]);
+const TOKEN = /\d+|[^\s\d.,;:!?()[\]{}"'/\\|+*=&_-]+/gu;
+function tokens(text) {
+  let t = text.toLowerCase().normalize("NFC");
+  t = t.replace(/go ahead/g, "goahead").replace(/do it/g, "doit").replace(/theek hai/g, "theekhai").replace(/thik hai/g, "thikhai")
+    .replace(/ठीक है/g, "ठीक").replace(/mat karo/g, "matkaro").replace(/haan ji/g, "haanji")
+    .replace(/\bkar\s+(do|lo|dijiye|dena)\b/g, "kardo").replace(/\ble\s+(lo|lijiye|lena)\b/g, "lelo").replace(/कर दो/g, "करो").replace(/ले लो/g, "लेलो");
+  const out = [];
+  for (const tok of t.match(TOKEN) || []) {
+    const s = tok.replace(/️/g, ""); const chars = [...s];
+    if (s && chars.every((c) => APPROVE.has(c) || REJECT.has(c))) out.push(...chars); else out.push(tok);
+  }
+  return out;
+}
+const kindOf = (t) => /^\d+$/.test(t) ? "num" : APPROVE.has(t) ? "yes" : REJECT.has(t) ? "no" : EXCEPT.has(t) ? "except" : ONLY.has(t) ? "only" : ALL.has(t) ? "all" : "other";
+function readDecision(text, n) {
+  const toks = tokens(text);
+  let kinds = toks.map(kindOf);
+  if (kinds.includes("yes")) kinds = kinds.map((k, i) => (toks[i] === "na" && k === "no" ? "other" : k));
+  const nums = toks.filter((_, i) => kinds[i] === "num").map(Number);
+  const yes = kinds.includes("yes"), no = kinds.includes("no"), exc = kinds.includes("except"), only = kinds.includes("only");
+  const words = toks.filter((t, i) => kinds[i] === "other" && /^\p{L}+$/u.test(t));
+  if (!(yes || no || exc || only)) return { kind: "QUERY" };
+  if (nums.some((x) => x < 1 || x > n)) return { kind: "QUERY" };
+  if (words.length > (nums.length ? 6 : 3)) return { kind: "QUERY" };
+  const lines = new Set(Array.from({ length: n }, (_, i) => i + 1)); const listed = new Set(nums);
+  const minus = (a, b) => new Set([...a].filter((x) => !b.has(x)));
+  const partial = (ap, rj) => !ap.size ? { kind: "REJECT_ALL", approve: new Set() } : !rj.size ? { kind: "APPROVE_ALL", approve: lines } : { kind: "PARTIAL", approve: ap, reject: rj };
+  if (!nums.length) {
+    if (exc) return { kind: "QUERY" };
+    if (yes && !no) return { kind: "APPROVE_ALL", approve: lines };
+    if (no && !yes) return { kind: "REJECT_ALL", approve: new Set() };
+    return { kind: "AMBIGUOUS" };
+  }
+  if (exc) { if (no && !yes) return { kind: "AMBIGUOUS" }; return partial(minus(lines, listed), listed); }
+  if (yes && no) {
+    const sig = toks.map((t, i) => [t, kinds[i]]).filter(([, k]) => ["num", "yes", "no"].includes(k));
+    const ap = new Set(), rj = new Set();
+    if (sig[0][1] !== "num") { let cur = null; for (const [t, k] of sig) { if (k === "num") (cur === "yes" ? ap : rj).add(+t); else cur = k; } }
+    else { let pend = []; for (const [t, k] of sig) { if (k === "num") pend.push(+t); else { pend.forEach((x) => (k === "yes" ? ap : rj).add(x)); pend = []; } } if (pend.length) return { kind: "AMBIGUOUS" }; }
+    if ([...ap].some((x) => rj.has(x)) || ap.size + rj.size !== n) return { kind: "AMBIGUOUS" };
+    return partial(ap, rj);
+  }
+  if (no) return partial(minus(lines, listed), listed);
+  return partial(listed, minus(lines, listed));
+}
+
+function dadSays(text, replyTo) {
+  const t = text.trim();
+  if (S.dadConfirm) {
+    const d = readDecision(t, 1);
+    if (d.kind === "APPROVE_ALL" || d.kind === "REJECT_ALL") return dadConfirm(d.kind === "APPROVE_ALL");
+    S.dadConfirm = null;
+  }
+  if (S.dadAsk) { const id = S.dadAsk; S.dadAsk = null; const slip = S.slips.find((s) => s.id === id); const d = readDecision(t, slip.lines.length); if (d.kind === "QUERY") return relayToAbbas(t, id); return dadDecides(slip, slip.version, d, t); }
+  if (/^(report|summary|hisab|hisaab)$/i.test(t)) { bot("dad", reportText()); return; }
+  if (/^(pending|baki|baaki)$/i.test(t)) { const p = S.slips.filter((s) => s.status === "PENDING"); if (!p.length) bot("dad", "✅ Nothing is waiting for your approval."); else p.forEach((s) => sendApprovalCard(s)); return; }
+  let slip = null, version = null;
+  const quoted = replyTo && findMsg("dad", replyTo);
+  if (quoted && quoted.slipId) { slip = S.slips.find((s) => s.id === quoted.slipId); version = quoted.version; }
+  if (!slip) {
+    const pending = S.slips.filter((s) => s.status === "PENDING");
+    if (pending.length === 1) { slip = pending[0]; version = slip.version; }
+    else if (!pending.length) { bot("dad", "Nothing is waiting for your approval right now. Send *report* for this month's spend."); return; }
+    else { bot("dad", `${pending.length} slips are waiting:\n${pending.map((s) => `• ${s.no} — ${inr(total(s))}`).join("\n")}\n\nPlease reply on the slip's own message.`); return; }
+  }
+  const d = readDecision(t, slip.lines.length);
+  if (d.kind === "QUERY") return relayToAbbas(t, slip.id);
+  return dadDecides(slip, version, d, t);
+}
+function dadDecides(slip, version, d, text) {
+  if (slip.status === "DRAFT") { bot("dad", `${slip.no} was pulled back by Abbas for changes. Nothing was approved.`); return; }
+  if (slip.status !== "PENDING") { bot("dad", `${slip.no} is already *${slip.status.toLowerCase()}* by ${slip.decidedBy} on ${fmtDay(slip.decidedAt)}, ${fmtTime(slip.decidedAt)}. Nothing changed.`); return; }
+  if (version !== slip.version) { bot("dad", `⚠️ ${slip.no} was changed after that message. Here is the latest version:`); sendApprovalCard(slip); return; }
+  if (d.kind === "AMBIGUOUS") { bot("dad", `I couldn't read that safely for ${slip.no}. Please reply *yes*, *no*, or e.g. *3 nahi* / *only 1 2*.`); return; }
+  if (d.kind === "PARTIAL") {
+    const ap = [...d.approve].sort((a, b) => a - b), rj = [...d.reject].sort((a, b) => a - b);
+    const amt = (set) => slip.lines.filter((l) => set.includes(l.n)).reduce((a, l) => a + l.amount, 0);
+    S.dadConfirm = { id: slip.id, v: slip.version, approve: ap, text };
+    bot("dad", `*${slip.no}* — please confirm:\n✅ Approve line ${ap.join(", ")} (${inr(amt(ap))})\n❌ Reject line ${rj.join(", ")} (${inr(amt(rj))})`, {
+      buttons: [{ label: "✅ Confirm", act: "dadConfirm", args: { yes: true } }, { label: "↩️ Cancel", act: "dadConfirm", args: { yes: false } }],
+    });
+    return;
+  }
+  return finalize(slip, d.kind === "APPROVE_ALL" ? slip.lines.map((l) => l.n) : [], text);
+}
+function dadConfirm(yes) {
+  const c = S.dadConfirm; S.dadConfirm = null;
+  if (!c) { bot("dad", "There's nothing waiting for confirmation."); return; }
+  const slip = S.slips.find((s) => s.id === c.id);
+  if (!yes) { bot("dad", `↩️ Cancelled. ${slip.no} is still waiting — reply on it when ready.`); return; }
+  if (slip.status !== "PENDING" || slip.version !== c.v) { bot("dad", `${slip.no} changed in the meantime; nothing was done.`); return; }
+  return finalize(slip, c.approve, c.text);
+}
+async function verifyCode(slip) {
+  const payload = JSON.stringify({ co: "KEC", no: slip.no, v: slip.version, by: slip.decidedBy, at: slip.decidedAt, lines: slip.lines.map((l) => [l.n, l.site, l.name, l.qty, l.unit, l.vendor, l.rate, l.status]) });
+  let hex = "";
+  try { const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload)); hex = [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join(""); }
+  catch (e) { let h = 2166136261; for (const ch of payload) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } hex = (h.toString(16) + "a1b2c3d4e5f60718").slice(0, 16); }
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let code = "";
+  for (let i = 0; i < 12; i++) code += A[parseInt(hex.slice(i * 2, i * 2 + 2), 16) % A.length];
+  return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
+}
+async function finalize(slip, approve, text) {
+  tick(2);
+  const all = slip.lines.length;
+  for (const l of slip.lines) {
+    l.status = approve.includes(l.n) ? "APPROVED" : "REJECTED";
+    const f = itemByRef(l.ref); if (f) f.item.status = l.status === "APPROVED" ? "ORDERED" : "REJECTED";
+    if (l.status === "APPROVED") S.history.push({ key: l.key, name: l.name, unit: l.unit, vendor: l.vendor, rate: l.rate, at: S.now, slip: slip.no, site: l.site, qty: l.qty });
+  }
+  slip.status = approve.length === all ? "APPROVED" : approve.length ? "PARTIAL" : "REJECTED";
+  slip.decidedAt = S.now; slip.decidedBy = approver(); slip.reply = text;
+  if (slip.status !== "REJECTED") slip.code = await verifyCode(slip);
+  audit(approver(), `${slip.status === "APPROVED" ? "Approved" : slip.status === "PARTIAL" ? "Partly approved" : "Rejected"} ${slip.no} by replying "${text}"${slip.code ? ` — code ${slip.code}` : ""}`);
+  const rejected = slip.lines.filter((l) => l.status === "REJECTED");
+  const head = slip.status === "REJECTED" ? `❌ *${slip.no} REJECTED* by ${approver()}` : slip.status === "PARTIAL" ? `🟡 *${slip.no} PARTLY APPROVED* by ${approver()} — ${inr(approvedTotal(slip))} of ${inr(total(slip))}` : `✅ *${slip.no} APPROVED* by ${approver()} — ${inr(approvedTotal(slip))}`;
+  let detail = head + (text.includes("(button)") ? "" : `\nReply: "${text}"`);
+  if (rejected.length && slip.status === "PARTIAL") detail += "\n\nNot approved — do *not* buy:\n" + rejected.map((l) => `❌ ${l.n}. ${l.name} (${l.vendor})`).join("\n");
+  if (slip.code) detail += `\n\nVerification code: *${slip.code}*`;
+  const label = `${slip.no} — ${slip.status.toLowerCase()}${slip.code ? " · code " + slip.code : ""}`;
+  bot("dad", `Done. ${head}\nThe signed slip has gone to Abbas.`);
+  bot("dad", "", { doc: { slipId: slip.id, label } });
+  bot("abbas", detail + (slip.status !== "REJECTED" ? `\n\nBuy only what is approved, from the vendors listed. When it's loaded, forward your dispatch post from the group.` : ""));
+  bot("abbas", "", { doc: { slipId: slip.id, label } });
+  for (const s of SITES) {
+    const ls = slip.lines.filter((l) => l.site === s.code);
+    if (!ls.length) continue;
+    const msg = [`🧾 *${slip.no}* update for ${s.name}:`, ...ls.map((l) => l.status === "APPROVED" ? `✅ ${l.ref} ${l.name} ${q(l.qty)} ${l.unit} — approved for purchase` : `❌ ${l.ref} ${l.name} — not approved`)].join("\n");
+    for (const e of engineersFor(s.code)) bot(e, msg);
+  }
+  render();
+}
+function relayToAbbas(text, slipId) {
+  const slip = S.slips.find((s) => s.id === slipId);
+  bot("abbas", `❓ *${approver()} asks about ${slip.no}:*\n${text}\n\n_Reply to this message to answer._`, { kind: "query", slipId });
+  audit(approver(), `Asked about ${slip.no}: "${text}"`);
+  bot("dad", `📨 Sent to Abbas: "${text}"${slip.status === "PENDING" ? `\n${slip.no} is still waiting for your decision.` : ""}`);
+}
+function relayToDad(text, slipId) {
+  const slip = S.slips.find((s) => s.id === slipId);
+  bot("dad", `💬 *Abbas replied about ${slip.no}:*\n${text}\n\n_Reply on the slip to decide._`, { slipId: slip.id, version: slip.version });
+  audit("Abbas", `Answered about ${slip.no}: "${text}"`);
+  bot("abbas", `Sent to ${approver()}.`);
+}
+
+/* ============================================================ dispatch and delivery */
+function undispatched(code) {
+  const used = new Set(S.dispatches.flatMap((d) => d.items.map((i) => i.lineKey).filter(Boolean)));
+  return S.slips.flatMap((s) => s.lines.filter((l) => l.status === "APPROVED" && l.site === code && !used.has(s.no + "#" + l.n)).map((l) => ({ ...l, slipNo: s.no, lineKey: s.no + "#" + l.n })));
+}
+function dispatchReport(text) {
+  const code = findSiteInText(text);
+  if (!code) { bot("abbas", "Which site is this dispatch for? Forward it again with the site name, e.g. *Diglipur Sector - …*"); return; }
+  const open = undispatched(code); const low = text.toLowerCase();
+  const items = open.filter((l) => l.key.split(" ").some((w) => w.length > 3 && low.includes(w)));
+  if (!items.length) { bot("abbas", `I couldn't match that dispatch to approved items for ${siteName(code)}. Name the items in the caption, e.g. "welding goggles loaded in…".`); return; }
+  const cm = text.match(/(?:handed over to|by hand of|loaded in|sent with|sent by|through)\s+(.+?)(?=\s+departed|\s+travelling|[,\n]|\.\s|$)/i);
+  const note = (text.match(/[^.\n]*(?:collect|parked|freight|transportation)[^.\n]*/gi) || []).map((x) => x.trim()).join(". ");
+  createDispatch(code, cm ? cm[1].trim() : "", note, items);
+}
+function dispatchCommand(text) {
+  const num = +(text.match(/ps[\s\-#]*0*(\d+)/i) || [])[1];
+  const slip = S.slips.find((s) => s.no === "PS-" + String(num).padStart(4, "0"));
+  if (!slip || !["APPROVED", "PARTIAL"].includes(slip.status)) { bot("abbas", `PS-${String(num).padStart(4, "0")} is not an approved slip.`); return; }
+  const rest = text.replace(/^\s*\w+\s*/, "").replace(/ps[\s\-#]*0*\d+/i, "").trim();
+  const code = findSiteInText(rest);
+  const carrier = code ? rest.replace(new RegExp(site(code).aliases.join("|"), "i"), "").trim() : rest;
+  const made = [];
+  for (const c of code ? [code] : [...new Set(slip.lines.map((l) => l.site))]) {
+    const items = undispatched(c).filter((l) => l.slipNo === slip.no);
+    if (items.length) made.push(createDispatch(c, carrier, "", items, true));
+  }
+  if (!made.length) bot("abbas", `Nothing left to dispatch on ${slip.no}.`);
+}
+function createDispatch(code, carrier, note, lines, quiet = false) {
+  tick(2);
+  S.counters.dsp++;
+  const d = { id: "d" + S.seq++, no: "DSP-" + String(S.counters.dsp).padStart(4, "0"), site: code, carrier, note, at: S.now, status: "OPEN",
+    items: lines.map((l, i) => ({ n: i + 1, name: l.name, key: l.key, qty: l.qty, unit: l.unit, lineKey: l.lineKey, slipNo: l.slipNo, received: null })) };
+  S.dispatches.push(d);
+  audit("Abbas", `Dispatched ${d.no} to ${siteName(code)}${carrier ? " via " + carrier : ""}: ${plural(d.items.length, "item")}`);
+  for (const e of engineersFor(code)) sendReceiptCard(e, d);
+  bot("abbas", `🚚 Logged *${d.no}* → ${siteName(code)}: ${plural(d.items.length, "item")}${carrier ? " via " + carrier : ""}.\nMatched to approved slip ${[...new Set(d.items.map((i) => i.slipNo))].join(", ")}.\n${engineersFor(code).map((k) => PEOPLE[k].name).join(", ")} will confirm what arrives.`);
+  void quiet;
+  return d;
+}
+function sendReceiptCard(person, d, prefix = "") {
+  const meta = [d.carrier ? "via " + d.carrier : "", d.note].filter(Boolean).join(" · ");
+  bot(person, `${prefix}🚚 *${d.no} → ${siteName(d.site)}*${meta ? `\n_${meta}_` : ""}\n\n${d.items.map((i) => `${i.n}. ${i.name} — ${q(i.qty)} ${i.unit} (${i.slipNo})`).join("\n")}\n\nWhen it reaches site, tap *All received*, or *Short/damaged* to tell what actually came.`, {
+    dspId: d.id, buttons: [{ label: "✅ All received", act: "grAll", args: { id: d.id } }, { label: "⚠️ Short/damaged", act: "grShort", args: { id: d.id } }],
+  });
+}
+function recordReceipt(person, d, got, text) {
+  tick(1);
+  const short = [];
+  for (const i of d.items) {
+    i.received = got[i.n] ?? i.qty;
+    if (i.received > 0) S.ledger.push({ site: d.site, key: i.key, name: i.name, unit: i.unit, qty: i.received, kind: "Received", ref: `${d.no} / ${i.slipNo}`, at: S.now });
+    if (i.received < i.qty) short.push(i);
+  }
+  d.status = "RECEIVED"; d.receivedBy = PEOPLE[person].name; d.receivedAt = S.now;
+  audit(PEOPLE[person].name, `Confirmed ${d.no} at ${siteName(d.site)}: ${short.length ? "short delivery" : "all received"}${text ? ` ("${text}")` : ""}`);
+  if (short.length) {
+    const lines = short.map((i) => `• ${i.name}: got ${q(i.received)} of ${q(i.qty)} ${i.unit} (${i.slipNo})`).join("\n");
+    const alert = `⚠️ *Short delivery at ${siteName(d.site)}* — ${d.no}${d.carrier ? ` (sent via ${d.carrier})` : ""}\n${lines}\nReported by ${PEOPLE[person].name}.`;
+    bot("abbas", alert); bot("dad", alert);
+    bot(person, `Recorded. Shortage reported to Abbas and ${approver()}.\n${lines}`);
+  } else {
+    bot("abbas", `✅ ${siteName(d.site)} confirmed delivery of ${d.no} (${PEOPLE[person].name}).`);
+    bot(person, `✅ Recorded. Stock for ${siteName(d.site)} updated.`);
+  }
+}
+function engineerSays(person, text) {
+  const t = text.trim();
+  const waitId = S.awaitShort[person];
+  if (waitId) {
+    delete S.awaitShort[person];
+    const d = S.dispatches.find((x) => x.id === waitId);
+    const got = {};
+    for (const m of t.matchAll(/(\d+)\s*[-:=.]\s*(\d+(?:\.\d+)?)/g)) if (d.items.some((i) => i.n === +m[1])) got[+m[1]] = +m[2];
+    if (!Object.keys(got).length) { bot(person, "I couldn't match that to the lines, so nothing was recorded. Tap *Short/damaged* again and reply like *1-45* (line – qty received)."); return; }
+    recordReceipt(person, d, got, t); return;
+  }
+  if (/^(stock|stok|maal)$/i.test(t)) { bot(person, stockText(PEOPLE[person].site)); return; }
+  if (/^(received|deliveries|delivery|status)$/i.test(t)) {
+    const open = S.dispatches.filter((d) => d.status === "OPEN" && d.site === PEOPLE[person].site);
+    if (!open.length) bot(person, "No deliveries due for your site."); else open.forEach((d) => sendReceiptCard(person, d));
+    return;
+  }
+  bot(person, "Thanks. Post requirements in the *Kailash Material* group as usual — Abbas forwards them to me.\nHere you can send *stock* or *received*.");
+}
+function stockText(code) {
+  const rows = stockRows(code);
+  return `📦 *Stock – ${siteName(code)}*\n` + (rows.length ? rows.map((r) => `${r.name} — ${q(r.qty)} ${r.unit}`).join("\n") : "Nothing recorded yet.");
+}
+function stockRows(code) {
+  const m = new Map();
+  for (const l of S.ledger.filter((x) => !code || x.site === code)) {
+    const k = l.site + "|" + l.key + "|" + l.unit;
+    const r = m.get(k) || { site: l.site, name: l.name, unit: l.unit, qty: 0, last: 0 };
+    r.qty += l.qty; r.last = Math.max(r.last, l.at); m.set(k, r);
+  }
+  return [...m.values()].filter((r) => Math.abs(r.qty) > 0.001).sort((a, b) => a.site.localeCompare(b.site) || a.name.localeCompare(b.name));
+}
+
+/* ============================================================ daily lists */
+function todoText() {
+  const lines = ["☀️ *Today's list*"];
+  for (const s of SITES) {
+    const items = openItems().filter((i) => i.site === s.code);
+    if (!items.length) continue;
+    lines.push("", `📍 *${s.name.toUpperCase()}* — ${items.length} to buy`);
+    for (const i of items) { const age = Math.floor((S.now - i.at) / DAY); lines.push(`${i.ref} ${i.name} — ${q(i.qty)} ${i.unit}${age >= 3 ? ` ⏰ ${age}d` : ""}`); }
+  }
+  const waiting = SITES.flatMap((s) => undispatched(s.code));
+  if (waiting.length) lines.push("", `🧾 *Approved, not dispatched:* ${plural(waiting.length, "line")} — ${[...new Set(waiting.map((l) => l.slipNo))].join(", ")}`);
+  const unconf = S.dispatches.filter((d) => d.status === "OPEN");
+  if (unconf.length) lines.push("", "🚚 *Sent, site hasn't confirmed:* " + unconf.map((d) => `${d.no} ${siteName(d.site)}`).join(", "));
+  const pend = S.slips.filter((s) => s.status === "PENDING");
+  if (pend.length) lines.push("", "⏳ *Waiting for approval:* " + pend.map((s) => `${s.no} ${inr(total(s))}`).join(", "));
+  return lines.length > 1 ? lines.join("\n") : "☀️ *Today's list*\nNothing pending. 🎉";
+}
+function reportText() {
+  const monthStart = Date.parse("2026-10-01T00:00:00+05:30");
+  const appr = S.slips.flatMap((s) => s.decidedAt >= monthStart ? s.lines.filter((l) => l.status === "APPROVED") : []);
+  const totalAppr = appr.reduce((a, l) => a + l.amount, 0) + 15800 + 900; // PS-0001 from 10 Oct
+  const bySite = {}; for (const l of appr) bySite[l.site] = (bySite[l.site] || 0) + l.amount;
+  bySite.NIC = (bySite.NIC || 0) + 15800; bySite.DIG = (bySite.DIG || 0) + 900;
+  const rej = S.slips.flatMap((s) => s.lines.filter((l) => l.status === "REJECTED"));
+  const lines = ["📊 *October 2026 so far*", `Approved: *${lakh(totalAppr)}* across ${S.slips.filter((s) => ["APPROVED", "PARTIAL"].includes(s.status)).length + 1} slips`,
+    "By site: " + Object.entries(bySite).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${siteName(k)} ${lakh(v)}`).join(" · ")];
+  if (rej.length) lines.push(`Rejected: ${inr(rej.reduce((a, l) => a + l.amount, 0))} (${plural(rej.length, "line")})`);
+  const shorts = S.dispatches.flatMap((d) => d.items.filter((i) => i.received != null && i.received < i.qty));
+  if (shorts.length) lines.push(`⚠️ Short deliveries: ${shorts.length}`);
+  return lines.join("\n");
+}
+function siteStatus() {
+  const out = [];
+  for (const s of SITES) {
+    const items = openItems().filter((i) => i.site === s.code), waiting = undispatched(s.code), transit = S.dispatches.filter((d) => d.site === s.code && d.status === "OPEN");
+    const parts = [];
+    if (items.length) parts.push(`${items.length} requested, no slip yet`);
+    if (waiting.length) parts.push(`${waiting.length} approved, not sent`);
+    if (transit.length) parts.push(`${plural(transit.length, "dispatch")} not confirmed`.replace("dispatchs", "dispatches"));
+    if (parts.length) out.push(`📍 ${s.name}: ${parts.join(" · ")}`);
+  }
+  return out.length ? "*Sites*\n" + out.join("\n") : "*Sites*\nNothing waiting anywhere.";
+}
+function jumpMorning() {
+  const d = new Date(S.now); const next = Date.parse(new Date(S.now + DAY).toLocaleDateString("en-CA", IST) + "T08:05:00+05:30");
+  void d; S.now = Math.max(next, S.now + MIN);
+  bot("abbas", todoText()); S.flags.morning = true; audit("Purchase Desk", "Sent Abbas his morning list");
+}
+function jumpEvening() {
+  const today = new Date(S.now).toLocaleDateString("en-CA", IST);
+  let t = Date.parse(today + "T20:05:00+05:30"); if (t <= S.now) t += DAY;
+  S.now = t;
+  bot("dad", "🌙 *Daily summary*\n" + siteStatus() + "\n\n" + reportText()); S.flags.evening = true; audit("Purchase Desk", `Sent ${approver()} the evening summary`);
+}
+
+/* ============================================================ actions from taps */
+const findMsg = (chat, id) => S.chats[chat].find((m) => m.id === id);
+async function act(a, args, chat) {
+  if (chat) push(chat, { from: chat, text: args && args._label ? args._label : "", tap: true });
+  switch (a) {
+    case "site": siteChosen(args.token, args.site); break;
+    case "slipSend": slipSend(args.id); break;
+    case "slipDiscard": { const s = S.slips.find((x) => x.id === args.id); if (s && s.status === "DRAFT") { s.status = "CANCELLED"; S.draftSlip = null; bot("abbas", `🗑 ${s.no} discarded.`); } break; }
+    case "dadBtn": { const s = S.slips.find((x) => x.id === args.id); await dadDecides(s, args.v, { kind: args.kind }, args.kind === "APPROVE_ALL" ? "✅ Approve all (button)" : "❌ Reject (button)"); break; }
+    case "dadAsk": S.dadAsk = args.id; bot("dad", `Type your question about ${S.slips.find((x) => x.id === args.id).no} — I'll send it to Abbas.`); break;
+    case "dadConfirm": await dadConfirm(args.yes); break;
+    case "grAll": { const d = S.dispatches.find((x) => x.id === args.id); if (d.status !== "OPEN") bot(chat, `${d.no} is already recorded by ${d.receivedBy}. Thank you.`); else recordReceipt(chat, d, {}, ""); break; }
+    case "grShort": { const d = S.dispatches.find((x) => x.id === args.id); if (d.status !== "OPEN") { bot(chat, `${d.no} is already recorded by ${d.receivedBy}.`); break; } S.awaitShort[chat] = d.id; bot(chat, `Tell me what actually came for ${d.no}:\n${d.items.map((i) => `${i.n}. ${i.name} — ${q(i.qty)} ${i.unit}`).join("\n")}\n\nReply like *1-8* (line – qty received).\n_Lines you don't mention are counted as fully received._`); break; }
+    case "openSlip": openSlip(args.id); break;
+  }
+}
+
+/* ============================================================ sending from the composer */
+let busy = false;
+async function uiSend(text) {
+  if (busy || !text.trim()) return;
+  busy = true; renderComposer();
+  try { await send(text); } finally { busy = false; render(); }
+}
+async function send(text, opts = {}) {
+  text = text.trim(); if (!text) return;
+  const chat = S.ui.chat;
+  {
+    tick(2);
+    const replyTo = S.ui.replyTo; S.ui.replyTo = null;
+    if (chat === "group") {
+      const who = opts.as || $("sender").value;
+      push("group", { from: who, text });
+      audit(PEOPLE[who].name, `Posted in the group: "${text.slice(0, 60)}"`);
+    } else {
+      const quoted = replyTo ? findMsg(chat, replyTo) : null;
+      push(chat, { from: chat, text, quote: quoted ? { from: "Purchase Desk", text: (quoted.text || (quoted.doc && quoted.doc.label) || "").split("\n")[0].replace(/\*/g, "") } : null });
+      render(); await nextFrame();
+      if (chat === "abbas") await abbasSays(text, { replyTo });
+      else if (chat === "dad") await dadSays(text, replyTo);
+      else engineerSays(chat, text);
+    }
+  }
+  save(); render();
+}
+const nextFrame = () => new Promise((r) => setTimeout(r, 30));
+
+/* ============================================================ rendering */
+function render() { renderClock(); renderTabs(); renderHead(); renderMsgs(); renderComposer(); renderStage(); renderSteps(); save(); }
+function renderClock() { $("clock").textContent = `${fmtDayLong(S.now)} · ${fmtTime(S.now)}`; }
+function renderAi() {
+  const box = $("aiBox"), label = $("aiLabel");
+  if (sampleFn) {
+    box.classList.toggle("on", aiWanted);
+    label.innerHTML = `<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="aiToggle" ${aiWanted ? "checked" : ""}> Claude reads messages</label>`;
+    $("aiToggle").onchange = (e) => { aiWanted = e.target.checked; renderAi(); };
+  } else { box.classList.remove("on"); label.textContent = !aiChecked ? "Checking for Claude…" : (aiNote || "Offline reader (Claude not available in this view)"); }
+}
+const chatName = (c) => (c === "group" ? "Kailash Material" : PEOPLE[c].name);
+function renderTabs() {
+  $("chatTabs").innerHTML = CHAT_ORDER.map((c) => `<button class="chat-tab" role="tab" aria-selected="${S.ui.chat === c}" data-chat="${c}">${c === "group" ? "👥 " : ""}${esc(chatName(c))}${S.unread[c] ? `<span class="badge">${S.unread[c]}</span>` : ""}</button>`).join("");
+}
+function renderHead() {
+  const c = S.ui.chat;
+  if (c === "group") { $("chatHead").innerHTML = `<div class="avatar" style="background:var(--muted)">KM</div><div><div class="who">Kailash Material</div><div class="sub">The existing site group · the bot is not in it</div></div>`; return; }
+  const p = PEOPLE[c];
+  const role = { engineer: `Engineer · ${siteName(p.site)}`, logistics: "Logistics", approver: "Approver" }[p.role];
+  $("chatHead").innerHTML = `<div class="avatar" style="background:var(--accent);color:var(--accent-ink)">PD</div><div><div class="who">Purchase Desk</div><div class="sub">${esc(p.name)}'s chat · ${role}</div></div>`;
+}
+const seenMsgs = new Set();
+function renderMsgs() {
+  const c = S.ui.chat, box = $("msgs");
+  const firstPaint = !seenMsgs.has("chat:" + c); seenMsgs.add("chat:" + c);
+  const cls = (m) => { const isNew = !firstPaint && !seenMsgs.has(m.id); seenMsgs.add(m.id); return isNew ? " new" : ""; };
+  let html = "", lastDay = "";
+  for (const m of S.chats[c]) {
+    if (m.note) { html += `<div class="note">${esc(m.note)}</div>`; continue; }
+    const day = fmtDayLong(m.at); if (day !== lastDay) { html += `<div class="daysep">${day}</div>`; lastDay = day; }
+    if (m.tap) { html += `<div class="msg mine${cls(m)}"><div class="bubble"><i>Tapped “${esc(m.text)}”</i><div class="meta"><span>${fmtTime(m.at)}</span></div></div></div>`; continue; }
+    const mine = c === "group" ? false : m.from === c;
+    const fromLabel = c === "group" ? `<div class="from" style="color:var(${PEOPLE[m.from].color})">${esc(PEOPLE[m.from].name)}</div>` : "";
+    let inner = fromLabel;
+    if (m.forwarded) inner += `<div class="fwd">↪ Forwarded</div>`;
+    if (m.quote) inner += `<div class="quote"><b>${esc(m.quote.from)}</b><br>${esc(m.quote.text)}</div>`;
+    if (m.photo) inner += `<div class="photo">${esc(m.photo)}</div>`;
+    if (m.doc) {
+      const s = S.slips.find((x) => x.id === m.doc.slipId);
+      inner = "";
+      html += `<div class="msg${cls(m)}"><button class="doc" data-open="${m.doc.slipId}"><span class="ic">PDF</span><span><span class="dn">${esc(m.doc.label)}</span><br><span class="ds">${s ? esc(s.no + ".pdf · tap to open") : ""}</span></span></button>${replyLink(c, m)}</div>`;
+      continue;
+    }
+    if (m.text) inner += `<div>${wa(m.text)}</div>`;
+    inner += `<div class="meta"><span>${fmtTime(m.at)}</span></div>`;
+    let actions = "";
+    if (c === "group") actions = `<div class="msg-actions">${m.fwdDone ? `<span class="as">✓ Forwarded by Abbas</span>` : `<button class="link-btn" data-fwd="${m.id}">↪ Forward to Purchase Desk (as Abbas)</button>`}</div>`;
+    else actions = replyLink(c, m);
+    html += `<div class="msg ${mine ? "mine" : ""}${cls(m)}"><div class="bubble">${inner}</div>${m.buttons ? `<div class="reply-btns">${m.buttons.map((b, i) => `<button data-msg="${m.id}" data-btn="${i}">${esc(b.label)}</button>`).join("")}</div>` : ""}${actions}</div>`;
+  }
+  if (busy && c !== "group") html += `<div class="typing">Purchase Desk is reading…</div>`;
+  box.innerHTML = html;
+  box.scrollTop = box.scrollHeight;
+}
+function replyLink(c, m) {
+  if (m.from !== "bot") return "";
+  if ((c === "dad" && m.slipId) || (c === "abbas" && m.kind === "query")) return `<div class="msg-actions"><button class="link-btn" data-reply="${m.id}">↩ Reply to this</button></div>`;
+  return "";
+}
+const CHIPS = {
+  group: [["ami", "Diglipur: grinding wheel 4\" 10 nos, black grease 500 gram"], ["chandramohan", "Car Nicobar - sariya 12mm 2 ton, balu 3 truck urgent"], ["tambi", "Kamorta - door stopper 1 no, mason karni 6 nos"], ["abbas", "Diglipur Sector - Welding goggles loaded in Anand Bus AN01F3868 departed today at 10.00 AM. Bus will be parked near BD BAR. Transportation not paid."]],
+  abbas: ["list", "N1 Om Traders 420", "remove N3", "slips"],
+  dad: ["haan", "3 nahi", "only 1 2", "cement 420 kyun?", "report", "pending"],
+  engineer: ["stock", "received", "1-8"],
+};
+function renderComposer() {
+  const c = S.ui.chat;
+  const sel = $("sender");
+  sel.hidden = c !== "group";
+  if (c === "group" && !sel.options.length) sel.innerHTML = Object.entries(PEOPLE).map(([k, p]) => `<option value="${k}">${esc(p.name)}</option>`).join("");
+  const list = c === "group" ? CHIPS.group : c === "abbas" ? CHIPS.abbas : c === "dad" ? CHIPS.dad : CHIPS.engineer;
+  $("chips").innerHTML = list.map((x, i) => { const txt = Array.isArray(x) ? x[1] : x; const who = Array.isArray(x) ? PEOPLE[x[0]].name + ": " : ""; return `<button class="chip" data-chip="${i}" title="${esc(who + txt)}">${esc(who + txt)}</button>`; }).join("");
+  $("asLine").textContent = c === "group" ? "You are posting in the group as the person selected. The bot can't read the group until Abbas forwards." : `You are typing as ${PEOPLE[c].name}.`;
+  const r = S.ui.replyTo && findMsg(c, S.ui.replyTo);
+  $("replying").hidden = !r;
+  if (r) $("replyingText").textContent = "Replying to: " + ((r.text || (r.doc && r.doc.label) || "").split("\n")[0].replace(/\*/g, "")).slice(0, 70);
+  $("sendBtn").disabled = busy; $("input").disabled = busy;
+}
+
+const STAGE_TABS = [["reqs", "Requirements"], ["slips", "Slips"], ["dsp", "Dispatches"], ["stock", "Stock"], ["reg", "Register"], ["log", "Log"]];
+function renderStage() {
+  const counts = { reqs: openItems().length, slips: S.slips.filter((s) => s.status !== "CANCELLED").length, dsp: S.dispatches.length, stock: stockRows().length, reg: S.slips.reduce((a, s) => a + (s.status === "CANCELLED" ? 0 : s.lines.length), 0), log: S.log.length };
+  $("stageTabs").innerHTML = STAGE_TABS.map(([k, n]) => `<button class="tab" role="tab" aria-selected="${S.ui.tab === k}" data-tab="${k}">${n}<span class="n">${counts[k] || ""}</span></button>`).join("");
+  $("stage").innerHTML = ({ reqs: stageReqs, slips: stageSlips, dsp: stageDsp, stock: stageStock, reg: stageReg, log: stageLog })[S.ui.tab]();
+}
+const STATUS_PILL = { OPEN: ["Waiting for slip", "warn"], IN_SLIP: ["Waiting for Dad", "info"], ORDERED: ["Approved", "ok"], REJECTED: ["Not approved", "bad"], CANCELLED: ["Removed", ""] };
+function stageReqs() {
+  const items = allItems();
+  if (!items.length) return `<div class="empty">Nothing logged yet. Requirements appear here when Abbas forwards group posts to the Purchase Desk (step 2).</div>`;
+  return SITES.map((s) => {
+    const rows = items.filter((i) => i.site === s.code);
+    if (!rows.length) return "";
+    return `<div><div class="group-h"><h3>${s.name}</h3><span class="eyebrow">${engineersFor(s.code).map((k) => PEOPLE[k].name).join(", ")}</span></div>
+      <div class="scroll-x"><table><thead><tr><th>Ref</th><th>Item</th><th class="num">Qty</th><th>Requisition</th><th>Status</th></tr></thead><tbody>
+      ${rows.map((i) => { const [t, c] = STATUS_PILL[i.status]; return `<tr><td class="mono">${i.ref}</td><td>${esc(i.name)}${i.spec ? `<span class="flag" style="color:var(--muted)">${esc(i.spec)}</span>` : ""}</td><td class="num">${q(i.qty)} ${esc(i.unit)}</td><td class="mono" style="font-size:12px">${i.reqNo}</td><td><span class="pill ${c}">${t}</span></td></tr>`; }).join("")}
+      </tbody></table></div></div>`;
+  }).join("") + `<div class="eyebrow">Read by ${S.reqs.some((r) => r.by === "claude") ? "Claude" : "the offline reader"} · Requirements tab of the Google Sheet</div>`;
+}
+const SLIP_PILL = { DRAFT: ["Draft", ""], PENDING: ["Waiting for Dad", "info"], APPROVED: ["Approved", "ok"], PARTIAL: ["Partly approved", "warn"], REJECTED: ["Rejected", "bad"], CANCELLED: ["Discarded", ""] };
+function stageSlips() {
+  const slips = S.slips.filter((s) => s.status !== "CANCELLED");
+  if (!slips.length) return `<div class="empty">No slips yet. Abbas creates one by writing rates against the refs, like <span class="mono">N1 Om Traders 420</span> (step 4).</div>`;
+  return slips.slice().reverse().map((s) => { const [t, c] = SLIP_PILL[s.status]; return `<div class="card"><div class="card-h"><span class="t">${s.no}${s.version > 1 ? " · rev " + s.version : ""}</span><span class="pill ${c}">${t}</span><span class="mono">${inr(total(s))}${["APPROVED", "PARTIAL"].includes(s.status) ? ` · approved ${inr(approvedTotal(s))}` : ""}</span><button class="btn small" data-open="${s.id}">View slip</button></div>
+    <div class="scroll-x"><table><thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th>Vendor</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>
+    ${s.lines.map((l) => `<tr${l.status === "REJECTED" ? ' style="color:var(--muted);text-decoration:line-through"' : ""}><td class="mono">${l.n}</td><td>${esc(l.name)} <span class="mono" style="font-size:11.5px;color:var(--muted)">${l.ref}</span>${l.flags.map((f) => `<span class="flag">⚠️ ${esc(f.text)}</span>`).join("")}</td><td class="num">${q(l.qty)} ${esc(l.unit)}</td><td>${esc(l.vendor)}</td><td class="num">${inr(l.rate)}</td><td class="num">${inr(l.amount)}</td></tr>`).join("")}
+    </tbody></table></div>${s.code ? `<div class="eyebrow">Signed by ${esc(s.decidedBy)} · reply "${esc(s.reply)}" · code ${s.code}</div>` : ""}</div>`; }).join("");
+}
+function stageDsp() {
+  if (!S.dispatches.length) return `<div class="empty">No dispatches yet. Abbas forwards his usual dispatch post from the group, like "Diglipur Sector - Welding goggles loaded in Anand Bus…" (step 8).</div>`;
+  return S.dispatches.slice().reverse().map((d) => `<div class="card"><div class="card-h"><span class="t">${d.no} → ${siteName(d.site)}</span><span class="pill ${d.status === "OPEN" ? "warn" : d.items.some((i) => i.received < i.qty) ? "bad" : "ok"}">${d.status === "OPEN" ? "Site hasn't confirmed" : d.items.some((i) => i.received < i.qty) ? "Short delivery" : "Received"}</span></div>
+    <div style="font-size:13.5px;color:var(--muted)">${esc([d.carrier && "Via " + d.carrier, d.note].filter(Boolean).join(" · ") || "No carrier noted")}</div>
+    <div class="scroll-x"><table><thead><tr><th>#</th><th>Item</th><th class="num">Sent</th><th class="num">Arrived</th><th>Slip</th></tr></thead><tbody>
+    ${d.items.map((i) => `<tr><td class="mono">${i.n}</td><td>${esc(i.name)}</td><td class="num">${q(i.qty)} ${esc(i.unit)}</td><td class="num"${i.received != null && i.received < i.qty ? ' style="color:var(--bad);font-weight:600"' : ""}>${i.received == null ? "—" : q(i.received)}</td><td class="mono" style="font-size:12px">${i.slipNo}</td></tr>`).join("")}
+    </tbody></table></div>${d.receivedBy ? `<div class="eyebrow">Confirmed by ${esc(d.receivedBy)} · ${fmtDay(d.receivedAt)} ${fmtTime(d.receivedAt)}</div>` : ""}</div>`).join("");
+}
+function stageStock() {
+  const rows = stockRows();
+  return `<div class="scroll-x"><table><thead><tr><th>Site</th><th>Item</th><th class="num">In stock</th><th>Last movement</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${siteName(r.site)}</td><td>${esc(r.name)}</td><td class="num">${q(r.qty)} ${esc(r.unit)}</td><td class="mono" style="font-size:12px">${fmtDay(r.last)}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">No stock recorded.</td></tr>`}</tbody></table></div>
+    <div class="eyebrow">Stock goes up only when a site confirms what arrived, never when Abbas buys.</div>`;
+}
+function stageReg() {
+  const rows = [
+    { no: "PS-0001", n: 1, status: "Approved", site: "NIC", name: "Cement OPC 53 grade", qty: 40, unit: "bag", vendor: "Om Traders", rate: 395, by: "Dad", code: "earlier" },
+    { no: "PS-0001", n: 2, status: "Approved", site: "DIG", name: "Welding goggles", qty: 6, unit: "nos", vendor: "Hira Metals", rate: 150, by: "Dad", code: "earlier" },
+    ...S.slips.filter((s) => s.status !== "CANCELLED").flatMap((s) => s.lines.map((l) => ({ no: s.no, n: l.n, status: s.status === "DRAFT" ? "Draft" : s.status === "PENDING" ? "Waiting" : l.status === "APPROVED" ? "Approved" : "Not approved", site: l.site, name: l.name, qty: l.qty, unit: l.unit, vendor: l.vendor, rate: l.rate, by: s.decidedBy || "", code: s.code || "" }))),
+  ];
+  return `<div class="scroll-x"><table><thead><tr><th>Slip</th><th>Status</th><th>Site</th><th>Item</th><th class="num">Qty</th><th>Vendor</th><th class="num">Rate</th><th class="num">Amount</th><th>Approved by</th><th>Code</th></tr></thead><tbody>
+    ${rows.map((r) => `<tr><td class="mono" style="white-space:nowrap">${r.no}#${r.n}</td><td><span class="pill ${r.status === "Approved" ? "ok" : r.status === "Not approved" ? "bad" : r.status === "Waiting" ? "info" : ""}">${r.status}</span></td><td>${siteName(r.site)}</td><td>${esc(r.name)}</td><td class="num">${q(r.qty)} ${esc(r.unit)}</td><td>${esc(r.vendor)}</td><td class="num">${inr(r.rate)}</td><td class="num">${inr(r.qty * r.rate)}</td><td>${esc(r.by)}</td><td class="mono" style="font-size:12px;white-space:nowrap">${esc(r.code)}</td></tr>`).join("")}
+    </tbody></table></div><div class="eyebrow">Purchase Register tab of the Google Sheet · PDFs filed in Drive by month</div>`;
+}
+function stageLog() {
+  if (!S.log.length) return `<div class="empty">Every action is recorded here with who did it and when: forwards, slips, approvals with the exact reply, dispatches and deliveries.</div>`;
+  return `<ul class="log">${S.log.slice().reverse().map((l) => `<li><span class="when">${fmtDay(l.at)} ${fmtTime(l.at)}</span><span><b>${esc(l.who)}</b> · ${esc(l.what)}</span></li>`).join("")}</ul>`;
+}
+
+/* ============================================================ slip document */
+function initials(name) { return name.split(/\s+/).filter(Boolean).slice(0, 3).map((w) => w[0].toUpperCase()).join("") || "D"; }
+function openSlip(id) {
+  const s = S.slips.find((x) => x.id === id); if (!s) return;
+  S.flags.viewedSlip = S.flags.viewedSlip || ["APPROVED", "PARTIAL"].includes(s.status);
+  const decided = ["APPROVED", "PARTIAL", "REJECTED"].includes(s.status);
+  const banner = s.status === "APPROVED" ? ["APPROVED FOR PURCHASE", "ok"] : s.status === "PARTIAL" ? ["PARTIALLY APPROVED - BUY ONLY THE LINES MARKED APPROVED", "ok"] : s.status === "REJECTED" ? ["REJECTED - DO NOT PURCHASE", "bad"] : ["PENDING APPROVAL - NOT VALID FOR PURCHASE", ""];
+  const bySite = SITES.filter((x) => s.lines.some((l) => l.site === x.code)).map((x) => {
+    const ls = s.lines.filter((l) => l.site === x.code);
+    return `<h3>${x.name} <span style="font-family:var(--body);text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted);font-size:12.5px">Engineer: ${engineersFor(x.code).map((k) => PEOPLE[k].name).join(", ")}</span></h3>
+      <div class="scroll-x"><table><thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th><th>Vendor</th><th>Status</th></tr></thead><tbody>
+      ${ls.map((l) => `<tr class="${l.status === "REJECTED" ? "rej" : ""}"><td class="mono">${l.n}</td><td>${esc(l.name)}<div style="font-size:11.5px;color:var(--muted)">Ref ${l.ref}</div>${l.flags.map((f) => `<span class="flag">[!] ${esc(f.text)}</span>`).join("")}</td><td class="num">${q(l.qty)} ${esc(l.unit)}</td><td class="num">${inr(l.rate)}</td><td class="num">${inr(l.amount)}</td><td>${esc(l.vendor)}</td><td style="font-weight:700;color:${l.status === "APPROVED" ? "var(--ok)" : l.status === "REJECTED" ? "var(--bad)" : "var(--muted)"}">${l.status === "APPROVED" ? "APPROVED" : l.status === "REJECTED" ? "NOT APPROVED" : "Pending"}</td></tr>`).join("")}
+      </tbody></table></div>`;
+  }).join("");
+  const vendors = {}; for (const l of s.lines) if (!decided || l.status === "APPROVED") vendors[l.vendor] = (vendors[l.vendor] || 0) + l.amount;
+  const nf = s.lines.reduce((a, l) => a + l.flags.length, 0);
+  let block;
+  const signer = s.decidedBy === "Dad" && S.approverName.trim() ? S.approverName.trim() : s.decidedBy;
+  if (["APPROVED", "PARTIAL"].includes(s.status)) {
+    const ini = initials(signer);
+    block = `<div class="sign-box"><div style="min-width:0;flex:1 1 280px"><div class="lbl">APPROVED AND DIGITALLY SIGNED BY</div><div class="sig">${esc(signer)}</div>
+      <div class="small">Approved on WhatsApp on <b>${fmtDay(s.decidedAt)} 2026, ${fmtTime(s.decidedAt)}</b> · reply recorded: “${esc(s.reply)}”</div>
+      <div style="margin-top:6px">Verification code: <b class="mono">${s.code}</b></div><div class="small">Scan the QR code to check this slip against the original record. Any change to items, quantities, rates or vendors makes the check fail.</div></div>
+      <div class="stamp-qr"><svg width="104" height="104" viewBox="0 0 104 104" role="img" aria-label="Approval stamp ${esc(ini)}"><g transform="rotate(-12 52 52)" fill="none" stroke="var(--accent)"><circle cx="52" cy="52" r="48" stroke-width="2.5"/><circle cx="52" cy="52" r="41" stroke-width="1"/>
+      <text x="52" y="30" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" font-weight="600" fill="var(--accent)" stroke="none" letter-spacing="1.5">APPROVED</text>
+      <text x="52" y="63" text-anchor="middle" font-family="Tinos, Times New Roman, serif" font-style="italic" font-weight="700" font-size="${ini.length > 2 ? 22 : 28}" fill="var(--accent)" stroke="none">${esc(ini)}</text>
+      <text x="52" y="80" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="8" fill="var(--accent)" stroke="none">${fmtDay(s.decidedAt)} 2026</text></g></svg><div class="qr" id="qr"></div></div></div>`;
+  } else if (s.status === "REJECTED") {
+    block = `<div class="wait-box" style="border-color:var(--bad)"><b>Rejected by ${esc(s.decidedBy)}</b> on ${fmtDay(s.decidedAt)}, ${fmtTime(s.decidedAt)} · reply recorded: “${esc(s.reply)}”</div>`;
+  } else {
+    block = `<div class="wait-box"><b>Awaiting approval.</b> Sent to ${esc(approver())} on WhatsApp. This document is not valid for purchase until it is re-issued with a signature and verification code.</div>`;
+  }
+  $("sheet").innerHTML = `${decided ? "" : `<div class="wm" aria-hidden="true">PENDING APPROVAL</div>`}
+    <button class="btn small close" id="closeSheet" type="button">Close</button>
+    <div class="sheet-head"><div><div class="co">KEC</div><div class="addr">Port Blair, Andaman &amp; Nicobar Islands</div></div><div class="right"><div class="doc-t">PURCHASE SLIP</div><div class="mono"><b>${s.no}</b>${s.version > 1 ? " (rev " + s.version + ")" : ""}</div><div class="addr">Date: ${fmtDay(s.submittedAt || s.createdAt)} 2026</div></div></div>
+    <div class="banner ${banner[1]}">${banner[0]}</div>
+    <div style="font-size:13.5px">Prepared by <b>Abbas</b> (Logistics) · Sites: <b>${SITES.filter((x) => s.lines.some((l) => l.site === x.code)).map((x) => x.name).join(", ")}</b></div>
+    ${bySite}
+    <h3>Vendor summary</h3>
+    <div class="scroll-x"><table><tbody>${Object.entries(vendors).map(([v, a]) => `<tr><td>${esc(v)}</td><td class="num">${inr(a)}</td></tr>`).join("")}
+      <tr><td>Total of all lines</td><td class="num">${inr(total(s))}</td></tr>${decided ? `<tr><td><b>Approved for purchase</b></td><td class="num"><b>${inr(approvedTotal(s))}</b></td></tr>` : ""}</tbody></table></div>
+    <p style="font-size:13px;margin:10px 0 0"><b>Checks:</b> ${nf ? `${plural(nf, "alert")} (marked [!]) ${decided ? "were shown to the approver before the decision" : "are shown to the approver with this slip"}.` : "no price, vendor or repeat-purchase alerts."}</p>
+    ${block}`;
+  $("overlay").hidden = false;
+  $("closeSheet").focus();
+  $("closeSheet").onclick = closeSlip;
+  if (s.code && window.QRCode) { try { new QRCode($("qr"), { text: `https://purchases.kec.example/verify/${s.no}?c=${s.code}`, width: 88, height: 88, correctLevel: QRCode.CorrectLevel.M }); } catch (e) { /* QR optional */ } }
+  save(); renderSteps();
+}
+function closeSlip() { $("overlay").hidden = true; }
+
+/* ============================================================ the guided trial */
+const groupReqIds = () => S.chats.group.filter((m) => m.from !== "dad" && m.from !== "abbas" && !m.fwdDone).map((m) => m.id);
+const DEMO_RATES = [[/cement/, "Om Traders", 420], [/binding/, "Hira Metals", 85], [/coupler|pipe/, "Om Traders", 120], [/ply|door/, "Sagar Hardware", 4200], [/goggle/, "Hira Metals", 180], [/sariya|tmt/, "Hira Metals", 62000], [/sand|balu/, "Om Traders", 9500]];
+const STEPS = [
+  { t: "Requirements come into the group", chat: "group",
+    body: `<p>This is the <b>Kailash Material</b> group as it works today: Ami's goggles for Diglipur, Chandramohan's Car Nicobar list, Tambi Uncle's ply door photo and reminder, and Dad's "Abbas do it".</p><p>Nobody changes anything here. Try posting your own message as anyone, using the box under the chat.</p>`,
+    done: () => true },
+  { t: "Abbas forwards them to the Purchase Desk", chat: "abbas",
+    body: `<p>Once or twice a day Abbas selects the new posts and forwards them together. The bot reads each one, sorts it by site and sends <b>one summary</b>. Chat and reminders are skipped.</p><p>Tap <b>↪ Forward</b> under a group message, or let the trial do all of them.</p>`,
+    done: () => S.reqs.length > 0,
+    auto: async () => { S.ui.chat = "abbas"; render(); await forwardFromGroup(groupReqIds()); } },
+  { t: "Pick the site for Tambi Uncle's post", chat: "abbas",
+    body: `<p>His post says "N/C", which the bot doesn't know yet, so it asks Abbas with one button per site. Tap <b>Kamorta</b>.</p><p>Once you confirm what N/C means, the bot will recognise it on its own.</p>`,
+    done: () => S.reqs.length > 0 && !Object.keys(S.stash).length,
+    auto: async () => { const tok = Object.keys(S.stash)[0]; if (tok) { S.ui.chat = "abbas"; siteChosen(tok, "KAM"); } } },
+  { t: "Abbas writes the rates", chat: "abbas",
+    body: `<p>Abbas types one line per ref with the vendor and rate, e.g. <span class="mono">N1 Om Traders 420</span>. The bot checks every line.</p><p>Watch for the alerts: <b>cement is 6.3% above the last price</b> and was bought for Nicobar 9 days ago, goggles are 20% up, and a new vendor appears. Type <span class="mono">list</span> first to see the refs.</p>`,
+    done: () => S.slips.length > 0,
+    auto: async () => {
+      S.ui.chat = "abbas"; const items = openItems();
+      if (!items.length) return;
+      const text = items.map((i) => { const r = DEMO_RATES.find(([re]) => re.test(i.key)) || [null, "Om Traders", 100]; return `${i.ref} ${r[1]} ${r[2]}`; }).join("\n");
+      await send(text);
+    } },
+  { t: "Send it to Dad", chat: "abbas",
+    body: `<p>Abbas taps <b>📤 Send for approval</b>. Dad gets the PDF, the line-by-line list with alerts, and three buttons.</p>`,
+    done: () => S.slips.some((s) => s.status !== "DRAFT"),
+    auto: async () => { const d = S.slips.find((s) => s.status === "DRAFT"); if (d) { S.ui.chat = "abbas"; slipSend(d.id); } } },
+  { t: "Dad decides", chat: "dad",
+    body: `<p>Dad replies the way he does in the group. Try <b>haan</b>, <b>no</b>, <b>3 nahi</b> (all except line 3), <b>only 1 2</b>, or a question like <b>cement 420 kyun?</b>, which goes to Abbas.</p><p>The trial drops the new-vendor line. A partial approval always asks for one confirm tap.</p>`,
+    done: () => S.slips.some((s) => ["APPROVED", "PARTIAL", "REJECTED"].includes(s.status)),
+    auto: async () => {
+      S.ui.chat = "dad"; const s = S.slips.find((x) => x.status === "PENDING"); if (!s) return;
+      const nv = s.lines.find((l) => l.flags.some((f) => f.code === "NEW_VENDOR"));
+      await send(nv && s.lines.length > 1 ? `${nv.n} nahi` : "haan");
+      if (S.dadConfirm) { await nextFrame(); await act("dadConfirm", { yes: true }); render(); }
+    } },
+  { t: "The signed slip", chat: "abbas",
+    body: `<p>Only after Dad's yes does the slip carry <b>his name, initials stamp, date and a verification code</b>. Type his real name at the top to see it on the slip.</p><p>Open the PDF in Abbas's chat or in the Slips tab.</p>`,
+    done: () => S.flags.viewedSlip,
+    auto: async () => { const s = [...S.slips].reverse().find((x) => ["APPROVED", "PARTIAL"].includes(x.status)); if (s) { S.ui.chat = "abbas"; render(); openSlip(s.id); } } },
+  { t: "Abbas dispatches", chat: "group",
+    body: `<p>Abbas posts his dispatch in the group as usual, with the carrier and collection point, then forwards it. The bot matches it to approved items and asks the site to confirm.</p><p>Try the dispatch suggestion under the group chat, then forward it.</p>`,
+    done: () => S.dispatches.length > 0,
+    auto: async () => {
+      const code = SITES.map((s) => s.code).find((c) => undispatched(c).some((l) => /goggle/.test(l.key))) || SITES.map((s) => s.code).find((c) => undispatched(c).length);
+      if (!code) return;
+      const items = undispatched(code);
+      const names = items.map((l) => l.name.toLowerCase()).join(", ");
+      const caption = code === "DIG" ? `Diglipur Sector - ${names} loaded in Anand Bus AN01F3868 departed today at 10.00 AM. Bus will be parked near BD BAR. Transportation not paid.`
+        : `${code === "NIC" ? "Car Nicobar" : "Kamorta"} Sector - ${names} handed over to Prem travelling in ship.`;
+      S.ui.chat = "group"; await send(caption, { as: "abbas" });
+      const g = S.chats.group[S.chats.group.length - 1];
+      S.ui.chat = "abbas"; render(); await forwardFromGroup([g.id]); render();
+    } },
+  { t: "The site confirms what arrived", chat: "siddhu",
+    body: `<p>The engineer gets the list of what was sent. They tap <b>All received</b>, or <b>Short/damaged</b> and type e.g. <b>1-8</b> if only 8 came.</p><p>A shortage goes straight to Abbas <b>and</b> Dad. Stock goes up only by what actually arrived.</p>`,
+    done: () => S.dispatches.some((d) => d.status === "RECEIVED"),
+    auto: async () => {
+      const d = S.dispatches.find((x) => x.status === "OPEN"); if (!d) return;
+      const who = engineersFor(d.site)[0]; S.ui.chat = who;
+      await act("grShort", { id: d.id, _label: "⚠️ Short/damaged" }, who);
+      const first = d.items[0];
+      await send(`1-${Math.max(0, first.qty - 2)}`);
+    } },
+  { t: "Morning list, evening summary", chat: "abbas",
+    body: `<p>Every morning Abbas gets what each site is still waiting for, and for how long. Every evening Dad gets a site-by-site summary and the month's spend.</p>`,
+    done: () => S.flags.morning && S.flags.evening,
+    actions: [["Jump to 8 PM", async () => { S.ui.chat = "dad"; jumpEvening(); }], ["Jump to 8 AM tomorrow", async () => { S.ui.chat = "abbas"; jumpMorning(); }]],
+    auto: async () => { S.ui.chat = "dad"; jumpEvening(); render(); await new Promise((r) => setTimeout(r, 600)); S.ui.chat = "abbas"; jumpMorning(); } },
+];
+function currentStep() { const i = STEPS.findIndex((s) => !s.done()); return i === -1 ? STEPS.length : i; }
+function renderSteps() {
+  const cur = currentStep();
+  if (S.ui.step == null || S.ui.step < 0) S.ui.step = cur;
+  const open = S.ui.openStep ?? cur;
+  $("progress").textContent = `${Math.min(cur, STEPS.length)} of ${STEPS.length} done`;
+  $("steps").innerHTML = STEPS.map((s, i) => {
+    const done = s.done(), active = i === open;
+    const acts = active ? `<div class="step-actions">${s.auto && !done ? `<button class="btn primary small" data-auto="${i}">Do it for me</button>` : ""}${(s.actions || []).map((a, j) => `<button class="btn small" data-extra="${i}:${j}">${esc(a[0])}</button>`).join("")}<button class="btn small" data-goto="${s.chat}">Open ${esc(chatName(s.chat))}</button></div>` : "";
+    return `<li class="step ${done ? "done" : ""} ${active ? "active" : ""}"><div class="step-row"><span class="step-num">${done ? "✓" : i + 1}</span><button class="step-title" data-step="${i}" aria-expanded="${active}">${esc(s.t)}</button></div>${active ? `<div class="step-body">${s.body}${acts}</div>` : ""}</li>`;
+  }).join("") + (cur >= STEPS.length ? `<li class="step"><div class="step-body" style="margin-left:0"><p><b>That's the whole loop.</b> Keep playing: post your own messages in the group, forward them, try different replies as Dad, or press <b>Start over</b>.</p></div></li>` : "");
+}
+
+/* ============================================================ events */
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.chat) { S.ui.chat = b.dataset.chat; S.unread[b.dataset.chat] = 0; S.ui.replyTo = null; render(); return; }
+  if (b.dataset.tab) { S.ui.tab = b.dataset.tab; renderStage(); save(); return; }
+  if (b.dataset.open) { openSlip(b.dataset.open); return; }
+  if (b.dataset.reply) { S.ui.replyTo = b.dataset.reply; renderComposer(); $("input").focus(); return; }
+  if (b.dataset.fwd) { if (busy) return; busy = true; S.ui.chat = "abbas"; render(); try { await forwardFromGroup([b.dataset.fwd]); } finally { busy = false; render(); } return; }
+  if (b.dataset.msg) {
+    if (busy) return;
+    const chat = S.ui.chat, m = findMsg(chat, b.dataset.msg), btn = m.buttons[+b.dataset.btn];
+    busy = true; try { tick(1); await act(btn.act, { ...btn.args, _label: btn.label }, chat); } finally { busy = false; render(); } return;
+  }
+  if (b.dataset.chip) {
+    const c = S.ui.chat, list = c === "group" ? CHIPS.group : c === "abbas" ? CHIPS.abbas : c === "dad" ? CHIPS.dad : CHIPS.engineer;
+    const x = list[+b.dataset.chip];
+    if (Array.isArray(x)) { $("sender").value = x[0]; $("input").value = x[1]; } else $("input").value = x;
+    $("input").focus(); return;
+  }
+  if (b.dataset.step) { S.ui.openStep = +b.dataset.step; renderSteps(); return; }
+  if (b.dataset.goto) { S.ui.chat = b.dataset.goto; S.unread[b.dataset.goto] = 0; render(); return; }
+  if (b.dataset.auto) {
+    if (busy) return;
+    b.disabled = true; busy = true;
+    try { await STEPS[+b.dataset.auto].auto(); } finally { busy = false; S.ui.openStep = null; S.unread[S.ui.chat] = 0; render(); }
+    return;
+  }
+  if (b.dataset.extra) { const [i, j] = b.dataset.extra.split(":").map(Number); await STEPS[i].actions[j][1](); S.unread[S.ui.chat] = 0; render(); return; }
+});
+$("sendBtn").onclick = async () => { const v = $("input").value; $("input").value = ""; await uiSend(v); };
+$("input").addEventListener("keydown", async (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); const v = $("input").value; $("input").value = ""; await uiSend(v); } });
+$("cancelReply").onclick = () => { S.ui.replyTo = null; renderComposer(); };
+$("overlay").addEventListener("click", (e) => { if (e.target.id === "overlay") closeSlip(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("overlay").hidden) closeSlip(); });
+$("resetBtn").onclick = () => { const name = S.approverName; S = freshState(); S.approverName = name; render(); };
+$("approverName").addEventListener("input", (e) => { S.approverName = e.target.value; save(); renderStage(); });
+
+/* ============================================================ start */
+S = load() || freshState();
+if (!S.chats || !S.ui) S = freshState();
+S.ui.openStep = null;
+$("approverName").value = S.approverName || "";
+render(); renderAi();
+(async () => {
+  try {
+    const fn = window.claude && typeof window.claude.use === "function" ? await window.claude.use("sample") : null;
+    if (fn) { sampleFn = fn; aiNote = ""; } else aiNote = "Offline reader (Claude reading not available in this view)";
+  } catch (e) { aiNote = "Offline reader"; }
+  aiChecked = true; renderAi();
+})();
+</script>
