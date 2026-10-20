@@ -25,9 +25,9 @@ LINES = [
      "Namaste. This video is about our new Purchase Desk: a WhatsApp number that keeps track of every site "
      "requirement, every purchase slip and every approval."),
     ("intro", "i2", "सबसे पहली बात: कैलाश मटीरियल ग्रुप वैसे ही चलेगा, जैसे अभी चलता है। पर्चेज़ डेस्क ग्रुप में कुछ "
-     "नहीं लिखता। वह एक क्लर्क की तरह चुपचाप हिसाब रखता है, और सिर्फ़ उसी को मैसेज करता है, जिसे कुछ करना है।",
+     "नहीं लिखता। वह एक क्लर्क की तरह चुपचाप हिसाब रखता है, और हर किसी को सिर्फ़ उसके अपने काम की बात भेजता है।",
      "First: the Kailash Material group keeps running exactly as it does now. The Purchase Desk never posts in the "
-     "group. Like a silent clerk it keeps the books, and messages only the person who has something to do."),
+     "group. Like a silent clerk it keeps the books, and tells each person only about their own part of the work."),
     ("intro", "i3", "काम तीन लोगों के बीच चलता है। साइट इंजीनियर ज़रूरत बताते हैं। अब्बास जी रेट लगाकर पर्चेज़ स्लिप "
      "बनाते हैं। और चड्ढा साहब स्लिप अप्रूव करते हैं।",
      "The work moves between three people. Site engineers say what they need. Abbas prices it into a purchase slip. "
@@ -37,9 +37,9 @@ LINES = [
      "After approval Abbas buys only what the slip approves, and sends it to site. The site taps a button to say "
      "what arrived, and that is what goes into the site's stock."),
     ("intro", "i5", "शुरू करने के लिए, पर्चेज़ डेस्क का नंबर अपने फ़ोन में पर्चेज़ डेस्क नाम से सेव कीजिए, और उसे हाय "
-     "भेजिए। आपके काम की पूरी लिस्ट आ जाएगी।",
+     "भेजिए। आपकी अपनी मदद का मैसेज आ जाएगा: क्या लिखना है, और क्या दबाना है।",
      "To start, save the Purchase Desk number in your phone as \"Purchase Desk\" and send it \"hi\". Your own "
-     "list of what to do comes back."),
+     "help message comes back: what to type and what to tap."),
     ("intro", "i6", "इस वीडियो के तीन हिस्से हैं: पहले साइट इंजीनियर, फिर अब्बास जी, और फिर चड्ढा साहब। आख़िर में पूरा "
      "सफ़र एक साथ।",
      "This video has three parts: site engineers first, then Abbas, then Mr Chadda. At the end, the whole journey "
@@ -50,10 +50,10 @@ LINES = [
      "लिखकर, वॉइस नोट में बोलकर, या लिस्ट की फ़ोटो खींचकर।",
      "Good news for site engineers: there's nothing new to learn. Post your requirement in the group as before: "
      "typed, as a voice note, or as a photo of the list."),
-    ("engineer", "e2", "बस मैसेज में साइट का नाम लिख दीजिए, जैसे कार निकोबार, कमोर्टा या डिगलीपुर। तब सामान अपने आप सही "
-     "साइट के नाम चढ़ता है।",
-     "Just put the site's name in the message, like Car Nicobar, Kamorta or Diglipur. Then the items go under the "
-     "right site by themselves."),
+    ("engineer", "e2", "बस मैसेज में, या फ़ोटो के कैप्शन में, साइट का नाम लिख दीजिए, जैसे कार निकोबार, कमोर्टा या "
+     "डिगलीपुर। नाम न हो, तो अब्बास जी को बटन दबाकर साइट चुननी पड़ती है।",
+     "Just write the site's name in the message, or in the photo's caption, like Car Nicobar, Kamorta or Diglipur. "
+     "Without it, Abbas has to pick the site with a tap."),
     ("engineer", "e3", "दिन में एक-दो बार अब्बास जी ग्रुप के ये मैसेज पर्चेज़ डेस्क को भेजते हैं। आपकी ज़रूरत दर्ज होते "
      "ही, पर्चेज़ डेस्क आपको यह मैसेज भेजता है।",
      "Once or twice a day Abbas sends these group posts to the Purchase Desk. As soon as your requirement is "
@@ -127,9 +127,10 @@ LINES = [
      "जवाब सीधे उनके पास जाता है।",
      "If Mr Chadda asks something, the question comes here. Swipe that message to the right and type your answer. "
      "It goes straight to him."),
-    ("abbas", "a14", "फ़ैसला होते ही साइन की हुई स्लिप आपके पास आती है। यहाँ लाइन पाँच मंज़ूर नहीं हुई, यानी वह नहीं "
-     "ख़रीदनी।",
-     "Once he decides, the signed slip comes to you. Here line five wasn't approved, so it must not be bought."),
+    ("abbas", "a14", "मंज़ूरी मिलते ही, पूरी या कुछ लाइनों की, साइन की हुई स्लिप आपके पास आती है। यहाँ लाइन पाँच मंज़ूर "
+     "नहीं हुई, यानी वह नहीं ख़रीदनी।",
+     "Once he approves, all or part, the signed slip comes to you. Here line five wasn't approved, so it must not "
+     "be bought."),
     ("abbas", "a15", "नियम एक ही है: सिर्फ़ वही ख़रीदिए जो साइन की हुई स्लिप पर है, और उसी दुकान से।",
      "One rule: buy only what is on the signed slip, from the shop it names."),
     ("abbas", "a16", "सामान भेजने के बाद ग्रुप में वैसे ही पोस्ट कीजिए जैसे अभी करते हैं: लिस्ट की फ़ोटो, और साथ में कि "
@@ -141,10 +142,10 @@ LINES = [
     ("abbas", "a18", "ग्रुप में पोस्ट नहीं किया, तो सीधे भी लिख सकते हैं: डिस्पैच, स्लिप का नंबर, साइट, और जहाज़ का नाम।",
      "If you didn't post in the group, you can also type it directly: dispatch, the slip number, the site and the "
      "ship's name."),
-    ("abbas", "a19", "और हर सुबह आठ बजे आपको आज की लिस्ट मिलती है: किस साइट का क्या बाक़ी है, और क्या अप्रूव होकर भी "
-     "अभी तक भेजा नहीं गया।",
-     "And every morning at eight you get today's list: what each site is still waiting for, and what is approved "
-     "but not yet sent."),
+    ("abbas", "a19", "और कुछ भी बाक़ी हो, तो हर सुबह आठ बजे आपको आज की लिस्ट मिलती है: किस साइट का क्या बाक़ी है, और "
+     "क्या अप्रूव होकर भी अभी तक भेजा नहीं गया।",
+     "And whenever anything is open, every morning at eight you get today's list: what each site is still waiting "
+     "for, and what is approved but not yet sent."),
     ("abbas", "a20", "तो अब्बास जी के लिए तीन बातें। ग्रुप से फ़ॉरवर्ड। लाइन लिखकर स्लिप। और भेजने वाली पोस्ट भी "
      "फ़ॉरवर्ड।",
      "So, three things for Abbas. Forward from the group. Write lines to make the slip. And forward the dispatch "
@@ -157,10 +158,12 @@ LINES = [
      "and three buttons below."),
     ("md", "m2", "हर लाइन में साइट, सामान, मात्रा, रेट और दुकान है। जिस लाइन पर यह पीला निशान है, उसे ध्यान से देखिए।",
      "Every line has the site, item, quantity, rate and shop. Look carefully at any line with this yellow sign."),
-    ("md", "m3", "निशान बताता है कि रेट पिछली बार से ज़्यादा है, या दुकान नई है, या साइट ने जितना माँगा उससे ज़्यादा "
-     "ख़रीदा जा रहा है, या यही सामान हाल ही में ख़रीदा जा चुका है।",
-     "The sign means the rate is higher than last time, or the shop is new, or more is being bought than the site "
-     "asked for, or the same thing was bought recently."),
+    ("md", "m3", "निशान बताता है कि रेट पिछली बार से पाँच परसेंट से ज़्यादा है, या दुकान नई है, या साइट ने जितना माँगा "
+     "उससे ज़्यादा ख़रीदा जा रहा है, या यही सामान उसी साइट के लिए दस दिन के अंदर ख़रीदा जा चुका है, या किसी साइट ने "
+     "उसे माँगा ही नहीं।",
+     "The sign means the rate is more than five percent above last time, or the shop is new, or more is being bought "
+     "than the site asked for, or the same thing was bought for that site in the last ten days, or no site asked "
+     "for it."),
     ("md", "m4", "कुछ पूछना हो, तो बस लिख दीजिए। जैसे: सीमेंट चार सौ बीस क्यों, पिछली बार तीन सौ पचानवे था।",
      "To ask something, just type it. Like: why is cement 420, last time it was 395?"),
     ("md", "m5", "सवाल अब्बास जी के पास चला जाता है, और स्लिप आपके फ़ैसले का इंतज़ार करती है। उनका जवाब इसी चैट में आता "
@@ -182,10 +185,10 @@ LINES = [
      "कोड के साथ।",
      "Now the signed slip is issued: with your name, your initials stamp, the date and time, and a verification "
      "code."),
-    ("md", "m10", "इस क्यूआर कोड को स्कैन करके कोई भी जाँच सकता है कि स्लिप असली है। स्लिप में कुछ भी बदला जाए, तो जाँच "
-     "फ़ेल हो जाती है।",
-     "Anyone can scan this QR code to check the slip is genuine. If anything on the slip is changed, the check "
-     "fails."),
+    ("md", "m10", "इस क्यूआर कोड को स्कैन करके कोई भी देख सकता है कि स्लिप असल में कैसी मंज़ूर हुई थी। काग़ज़ पर कुछ भी "
+     "अलग हो, तो समझिए स्लिप बदली गई है।",
+     "Anyone can scan this QR code to see the slip exactly as it was approved. If the paper differs from that in "
+     "anything, the slip has been changed."),
     ("md", "m11", "सबसे ज़रूरी बात: अप्रूवल सिर्फ़ आपके नंबर से होता है। आपकी हाँ के बिना किसी स्लिप पर आपका नाम नहीं "
      "आता।",
      "Most important: approval comes only from your number. Without your yes, no slip carries your name."),
@@ -196,9 +199,9 @@ LINES = [
     ("md", "m13", "साइट पर कुछ कम पहुँचे, तो उसकी ख़बर आपको उसी समय मिलती है।",
      "If something reaches a site short, you hear about it at once."),
     ("md", "m14", "और हर शाम आठ बजे एक समरी: किस साइट का क्या बाक़ी है, और इस महीने कितना ख़र्च हुआ। कभी भी रिपोर्ट "
-     "लिखकर यह हिसाब देख सकते हैं, और पेंडिंग लिखकर वो स्लिप, जो आपका इंतज़ार कर रही हैं।",
+     "लिखकर इस महीने का ख़र्च देख सकते हैं, और पेंडिंग लिखकर वो स्लिप, जो आपका इंतज़ार कर रही हैं।",
      "And every evening at eight, a summary: what each site is waiting for, and what was spent this month. Type "
-     "\"report\" any time for the accounts, and \"pending\" for the slips waiting for you."),
+     "\"report\" any time for this month's spending, and \"pending\" for the slips waiting for you."),
     ("md", "m15", "ग्रुप में अब हर चीज़ पर अब्बास डू इट लिखने की ज़रूरत नहीं। स्लिप पर हाँ कीजिए, क्योंकि रेट वहीं "
      "दिखता है।",
      "In the group you no longer need to write \"Abbas do it\" on every item. Say yes on the slip, because that's "
@@ -213,10 +216,10 @@ LINES = [
     ("journey", "j3", "चड्ढा साहब स्लिप पर हाँ करते हैं। साइन की हुई स्लिप अब्बास जी के पास आती है, और साइट को पता चलता "
      "है कि क्या ख़रीदा जाएगा।",
      "Mr Chadda says yes on the slip. The signed slip reaches Abbas, and the site learns what will be bought."),
-    ("journey", "j4", "सामान जाता है, साइट बटन दबाकर बताती है कि क्या पहुँचा, और स्टॉक अपडेट होता है। हर स्लिप गूगल "
-     "ड्राइव में, और हर लाइन गूगल शीट में दर्ज होती है।",
-     "The material goes, the site taps to say what arrived, and stock updates. Every slip is filed in Google Drive "
-     "and every line in a Google Sheet."),
+    ("journey", "j4", "सामान जाता है, साइट बटन दबाकर बताती है कि क्या पहुँचा, और स्टॉक अपडेट होता है। गूगल जुड़ने के "
+     "बाद, हर फ़ैसले वाली स्लिप गूगल ड्राइव में, और हर लाइन गूगल शीट में दर्ज होती है।",
+     "The material goes, the site taps to say what arrived, and stock updates. Once Google is connected, every "
+     "decided slip is filed in Google Drive and every line in a Google Sheet."),
     ("journey", "j5", "कोई दिक़्क़त हो, तो पर्चेज़ डेस्क को हाय भेजिए, या शिवांक को बताइए। धन्यवाद।",
      "Any trouble, send \"hi\" to the Purchase Desk, or tell Shivank. Thank you."),
 ]

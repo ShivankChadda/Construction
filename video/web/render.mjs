@@ -108,6 +108,7 @@ async function video() {
 // Text never overlaps other text: every visible text run's glyph boxes, from the frame's own layout.
 async function textcheck() {
   const { page } = await open();
+  await page.addStyleTag({ content: "* { pointer-events: auto !important; }" });   // so the hit test sees every layer
   const step = Number(args.step || 0.2);
   const from = Number(args.from || 0), to = Number(args.to || film.duration);
   const found = [];
@@ -121,21 +122,36 @@ async function textcheck() {
         }
         return true;
       };
+      // a text box counts only where it can be seen: the topmost opaque thing at its centre must be the text itself
+      // (elementsFromPoint honours clipping; covers that are transparent or faded don't hide anything)
+      const eff = (e) => { let o = 1; for (; e && e !== document.body; e = e.parentElement) o *= Number(getComputedStyle(e).opacity); return o; };
+      const opaque = (e) => {
+        const cs = getComputedStyle(e);
+        const m = /rgba?\(([^)]+)\)/.exec(cs.backgroundColor);
+        const a = m ? (m[1].split(",")[3] === undefined ? 1 : Number(m[1].split(",")[3])) : 0;
+        return (a > 0.9 || cs.backgroundImage !== "none" || e.tagName === "IMG") && eff(e) > 0.9;
+      };
+      const seen = (el, x, y) => {
+        for (const e of document.elementsFromPoint(x, y)) {
+          if (e === el || el.contains(e)) return true;
+          if (e.contains(el)) continue;          // a container of the text (the phone, the chat): look further down
+          if (opaque(e)) return false;
+        }
+        return false;
+      };
       const boxes = [];
       const walker = document.createTreeWalker(document.getElementById("frame"), NodeFilter.SHOW_TEXT);
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         if (!n.textContent.trim()) continue;
         const el = n.parentElement;
-        if (!vis(el)) continue;
+        if (!vis(el) || eff(el) < 0.08) continue;
         const r = document.createRange();
         r.selectNodeContents(n);
         for (const b of r.getClientRects()) {
           if (b.width < 2 || b.height < 2) continue;
           if (b.right < 0 || b.bottom < 0 || b.left > 1920 || b.top > 1080) continue;
-          // the clip of the phone screen / chat body
-          let clip = null;
-          for (let e = el; e; e = e.parentElement) if (e.classList && (e.classList.contains("body") || e.classList.contains("screen") || e.classList.contains("pages"))) { clip = e.getBoundingClientRect(); break; }
-          if (clip && (b.bottom <= clip.top + 1 || b.top >= clip.bottom - 1)) continue;
+          const cx = Math.min(1919, Math.max(0, (b.left + b.right) / 2)), cy = Math.min(1079, Math.max(0, (b.top + b.bottom) / 2));
+          if (!seen(el, cx, cy)) continue;
           const shrink = b.height * 0.18;
           boxes.push({ el, l: b.left + 1, r: b.right - 1, t: b.top + shrink, b: b.bottom - shrink, s: n.textContent.trim().slice(0, 30) });
         }

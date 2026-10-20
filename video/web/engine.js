@@ -298,6 +298,7 @@ function updateChat(P, C, t) {
   }
   C.qprev.style.opacity = q ? smooth((t - q.qt) / 0.2) : 0;
   const extra = C.inbar.offsetHeight - C.baseInbar + (q ? C.qprev.offsetHeight - 6 : 0);
+  C.body.style.bottom = C.baseInbar + Math.max(0, extra) + "px";
   // scroll
   const sc = springs(t, C.scrollBase, C.scrollCh, DEF_F, DEF_Z) + Math.max(0, extra);
   C.col.style.transform = `translateY(${-sc}px)`;
@@ -403,8 +404,8 @@ function updatePhone(P, t) {
     P.notif.querySelector(".nt").innerHTML = `${esc(n.title)}<span>now</span>`;
     P.notif.querySelector(".nb").textContent = n.text;
     const v = t < x1(n) ? spring(t - n.t0, SNAP_F, SNAP_Z) : 1 - spring(t - n.t1, DEF_F, DEF_Z);
-    P.notif.style.opacity = clamp(v * 1.5);
-    P.notif.style.transform = `translateY(${(1 - v) * -120}px)`;
+    P.notif.style.opacity = v > 0.001 ? 1 : 0;
+    P.notif.style.transform = `translateY(${(1 - v) * -130}px)`;
   } else P.notif.style.opacity = 0;
 }
 const x1 = (n) => n.t1;
@@ -644,17 +645,19 @@ function updateOverlays(t, z) {
     }
     e.style.opacity = o;
   }
-  // chapter cards (full frame)
-  const c = (FILM.cards || []).find((p) => t >= p.t0 - 0.05 && t < p.t1 + 0.05);
+  // chapter cards (full frame): cut in, then slide up and away, opaque all the time (text never cross-fades)
+  const c = (FILM.cards || []).find((p) => t >= p.t0 && t < p.t1 + 0.75);
   if (c) {
     const key = c.t0;
     if (OV._card !== key) {
       OV.card.innerHTML = `<div class="n">${esc(c.n)}</div><div class="t">${esc(c.t)}</div><div class="e">${esc(c.e)}</div>${c.w ? `<div class="w">${esc(c.w)}</div>` : ""}`;
       OV._card = key;
     }
-    const v = window01(t, c.t0, c.t1, 0.35, 0.45);
-    OV.card.style.opacity = v;
-    OV.card.style.transform = `translateY(${(1 - spring(t - c.t0, HEAVY_F, HEAVY_Z)) * 30}px)`;
+    OV.card.style.opacity = 1;
+    const out = t < c.t1 ? 0 : smooth((t - c.t1) / 0.7);
+    const inner = 1 - spring(t - c.t0, HEAVY_F, HEAVY_Z);
+    OV.card.style.transform = `translateY(${-1090 * out}px)`;
+    for (const ch of OV.card.children) ch.style.transform = `translateY(${inner * 40}px)`;
   } else OV.card.style.opacity = 0;
 }
 

@@ -41,7 +41,7 @@ Asked before building (20 Oct 2026):
 - **Names in the narration:** "अब्बास जी", "चड्ढा साहब" (respectful, and what the team says), and "आप" in his own chapter.
   In the others' phones he is saved as "Chadda Sahab"; the bot prints his full name.
 - **Chapters** (each person can be sent only their part): 0:00 opening (what it is, the group stays the same, the flow,
-  save the number and send "hi"), 1:25 site engineers, 3:37 Abbas, 6:57 Mr Chadda, 9:40 the whole journey (three phones
+  save the number and send "hi"), 1:26 site engineers, 3:41 Abbas, 7:05 Mr Chadda, 9:59 the whole journey (three phones
   side by side, the slip travelling between them). Three personal versions: opening + their chapter + the journey.
 - **Picture:** an Android-WhatsApp-style phone (light theme, green header, real bubbles, buttons, forwarded labels,
   quoted replies, PDF previews, voice notes, photos, selection mode, the Forward picker, the PDF viewer, notification
@@ -63,6 +63,29 @@ Asked before building (20 Oct 2026):
   the phone name tags (two-phone shot), the slip zoom scrolled away by later messages (the chat now stays where you
   scrolled until you send, as WhatsApp does), a command box running off the frame, the journey's moving labels over the
   phones.
+
+- **Fact audit** (an independent agent, every line against `src/purchasebot` and the capture): 0 wrong, 10 overstated,
+  49 supported. Nine lines reworded and re-voiced (speech check PASS, 0 WARN):
+  - i2: the bot tells each person about their own part (engineers also get FYI messages that need no action);
+  - i5: "hi" brings a help message of commands, not a to-do list;
+  - e2: the site is found from the message or the photo's caption; without it Abbas picks it with a tap;
+  - a14: a signed slip comes only on approval, full or part (a rejected slip is not signed);
+  - a19: the morning list comes when something is open;
+  - m3: the alerts exactly as coded: rate more than 5% up, new shop, more than asked, same site within 10 days,
+    nobody asked for it;
+  - m10: the QR shows the slip as approved on the server; a changed paper is caught by comparing it with that page
+    (the scan does not itself fail);
+  - m14: "report" is this month's spending;
+  - j4: Drive and Sheet filing work once Google is connected (off until set up).
+  - Not in the narration, for the user: the signed PDF itself prints "Any change to items, quantities, rates or vendors
+    makes the check fail" (`src/purchasebot/pdf.py`), the same overstatement as m10's first wording.
+  - a4 (the bot reads voice notes and photos) holds only with the Claude and Sarvam keys set, as the README plans.
+- **Text on text:** `web/render.mjs --textcheck` now counts only text that can be seen (topmost opaque layer at its
+  centre; clipping honoured). First pass 305 frames: chat text scrolling behind the input bar, chapter cards
+  cross-fading over phone text, the notification banner fading over the header, the parts list fading in over phones,
+  the first phone fading in under the title. Fixed (the chat ends above the input bar as in WhatsApp; cards cut in and
+  slide away, opaque; the banner slides, never fades; timings). Second pass: 1 frame (2:04), a chat screen sliding over
+  another, checked by eye: clean.
 
 ## Deliveries
 

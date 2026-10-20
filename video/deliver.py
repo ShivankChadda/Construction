@@ -95,19 +95,24 @@ def write_srt(path: Path, items, segments):
 
 
 def cut(name: str, segments):
-    """Re-encode the kept parts of the film into one file, with a 0.15 s sound fade at each join."""
+    """Re-encode each kept part of the film on its own (a 0.15 s sound fade at each join), then join them."""
     src = OUT / "purchase_desk_tutorial.mp4"
-    fc, labels = [], []
+    parts = []
     for k, (a, b) in enumerate(segments):
         d = b - a
-        fc.append(f"[0:v]trim={a:.3f}:{b:.3f},setpts=PTS-STARTPTS[v{k}]")
-        fc.append(f"[0:a]atrim={a:.3f}:{b:.3f},asetpts=PTS-STARTPTS,afade=t=in:d=0.15,afade=t=out:st={d - 0.15:.3f}:d=0.15[a{k}]")
-        labels.append(f"[v{k}][a{k}]")
-    fc.append("".join(labels) + f"concat=n={len(segments)}:v=1:a=1[v][a]")
+        part = OUT / f"{name}.seg{k}.mp4"
+        run("ffmpeg", "-y", "-loglevel", "error", "-ss", f"{a:.3f}", "-i", str(src), "-t", f"{d:.3f}",
+            "-af", f"afade=t=in:d=0.15,afade=t=out:st={d - 0.15:.3f}:d=0.15",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-tune", "animation", "-pix_fmt", "yuv420p", "-r", "30",
+            "-g", "60", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", str(part))
+        parts.append(part)
+    lst = OUT / f"{name}.txt"
+    lst.write_text("".join(f"file '{p.name}'\n" for p in parts))
     tmp = OUT / (name + ".part.mp4")
-    run("ffmpeg", "-y", "-loglevel", "error", "-i", str(src), "-filter_complex", ";".join(fc), "-map", "[v]", "-map", "[a]",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-tune", "animation", "-pix_fmt", "yuv420p", "-r", "30",
-        "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", str(tmp))
+    run("ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy",
+        "-movflags", "+faststart", str(tmp))
+    for p in parts + [lst]:
+        p.unlink()
     tmp.rename(OUT / (name + ".mp4"))
 
 
@@ -115,10 +120,12 @@ def main():
     OUT.mkdir(exist_ok=True)
     full = OUT / "purchase_desk_tutorial.mp4"
     tmp = OUT / "purchase_desk_tutorial.part.mp4"
-    run("ffmpeg", "-y", "-loglevel", "error", "-i", str(BUILD / "picture.mp4"), "-i", str(BUILD / "mix.wav"), "-map", "0:v",
-        "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", "-movflags", "+faststart",
-        str(tmp))
-    tmp.rename(full)
+    fresh = full.exists() and all(full.stat().st_mtime > (BUILD / f).stat().st_mtime for f in ("picture.mp4", "mix.wav"))
+    if not fresh:
+        run("ffmpeg", "-y", "-loglevel", "error", "-i", str(BUILD / "picture.mp4"), "-i", str(BUILD / "mix.wav"),
+            "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
+            "-movflags", "+faststart", str(tmp))
+        tmp.rename(full)
     rows = cues()
     hi = [x for h, _ in rows for x in h]
     en = [x for _, e in rows for x in e]

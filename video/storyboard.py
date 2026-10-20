@@ -404,6 +404,7 @@ def persona(t0, t1, name, role, av):
 def intro():
     F = FILM
     F.chapters.append(("intro", F.t))
+    overview(0)
     t0 = F.t
     F.item(t0, t0 + 3.6, kind="html", cls="title", fin=0.01, html=(
         '<div style="font:700 30px/1 Roboto;letter-spacing:.14em;color:#008069">KEC · KAILASH MATERIAL</div>'
@@ -419,7 +420,7 @@ def intro():
     ab.screen(0, "chat:d", "cut")
     F.lay(0, abbas_i=dict(OFF_R, x=520, y=548, s=1.12))
     L = F.say("i1", lead=0.2)
-    F.lay(L.start - 0.4, abbas_i=SOLO)
+    F.lay(L.start, abbas_i=SOLO)
     F.step(L.start, L.end + 0.2, k="पर्चेज़ डेस्क · Purchase Desk", h="एक व्हाट्सऐप नंबर",
            e="One WhatsApp number that keeps track of every requirement, every slip and every approval.")
     zoom(L.w("व्हाट्सऐप"), "abbas_i", {"rect": [0, 40, 393, 60]}, z=2.2, dy=120)
@@ -431,7 +432,7 @@ def intro():
     F.step(L.start, L.w("वह एक क्लर्क"), k="ग्रुप · The group", h="कैलाश मटीरियल ग्रुप वैसे ही चलेगा",
            e="The Kailash Material group keeps running exactly as it does now.")
     F.step(L.w("वह एक क्लर्क"), L.end + 0.2, k="चुपचाप क्लर्क · A silent clerk", h="ग्रुप में कुछ नहीं लिखता",
-           e="It never posts in the group. It messages only the person who has to act.")
+           e="It never posts in the group. Each person hears only about their own part of the work.")
     # i3 + i4: the flow, person by person
     L3 = F.say("i3", lead=0.3)
     F.lay(L3.start - 0.2, abbas_i=OFF_L)
@@ -474,9 +475,9 @@ def intro():
         t_send = L.w("हाय") + 0.2 + 0.45 * k
         say_step(p, c, step, t_send - 1.0, t_send, gap=0.5)
     # i6: the parts
-    L = F.say("i6", lead=0.2, tail=0.8)
-    F.lay(L.start, **{pid: dict(x=x, y=600, s=0.9, o=0, tag=0) for pid, x in zip(trio, xs3)})
-    F.toc = (L.start, L.end + 0.6)
+    L = F.say("i6", lead=0.6, tail=0.8)
+    F.lay(L.start - 0.7, **{pid: dict(x=x, y=600, s=0.9, o=0, tag=0) for pid, x in zip(trio, xs3)})
+    F.toc = (L.start + 0.7, L.end + 0.6)
 
 
 def engineer():
@@ -489,8 +490,8 @@ def engineer():
     history_group(grp, ["g1", "g2", "g3"], t_card)
     history(desk, "summary", t_card)
     ch.screen(0, "chat:g", "cut")
-    F.lay(t_card + 1.5, ch=dict(SOLO, o=0))
-    F.lay(t_card + 2.9, ch=SOLO)
+    F.lay(t_card + 1.2, ch=dict(SOLO, o=0))
+    F.lay(t_card + 1.8, ch=SOLO)
     overview(t_card)
     persona(F.t, 1e9, "Chandramohan", "साइट इंजीनियर, निकोबार · Site engineer, Nicobar", AV["Chandramohan"])
     p0 = len(F.persona) - 1
@@ -510,7 +511,7 @@ def engineer():
     L = F.say("e2")
     m = grp.by_step["g_nic"][0]
     mark(m, L.w("साइट का नाम"), L.end + 0.3, "Car Nicobar")
-    F.step(L.start, L.end, h="मैसेज में साइट का नाम", e="Put the site's name in the message: Car Nicobar, Kamorta, Diglipur.",
+    F.step(L.start, L.end, h="मैसेज में साइट का नाम", e="Write the site's name in the message or the photo's caption. Without it, Abbas picks the site with a tap.",
            cmd="Car Nicobar site requirement", lbl="जैसे · for example")
     # e3: Abbas logs it; the engineer hears back
     L = F.say("e3")
@@ -656,8 +657,8 @@ def abbas():
         {"title": "Recent chats", "items": [
             {"name": n, "status": "", "avatar": AV[n]} for n in ("Chandramohan", "Siddhu", "Tambi Uncle", "Shivank")]}],
         "picks": []}
-    F.lay(t_card + 1.5, ch=HIDE, ab=dict(SOLO, o=0))
-    F.lay(t_card + 2.9, ab=SOLO)
+    F.lay(t_card + 1.2, ch=HIDE, ab=dict(SOLO, o=0))
+    F.lay(t_card + 1.8, ab=SOLO)
     persona(F.t, 1e9, "Abbas", "लॉजिस्टिक्स · Logistics", AV["Abbas"])
     p0 = len(F.persona) - 1
     # a1
@@ -862,8 +863,8 @@ def chadda():
     history(desk, "send", t_card)
     history_group(grp, ["g1", "g2", "g3", "g_nic", "g_voice", "g_photo", "g_chat"], t_card)
     md.screen(0, "chat:d", "cut")
-    F.lay(t_card + 1.5, ab=HIDE, md=dict(SOLO, o=0))
-    F.lay(t_card + 2.9, md=SOLO)
+    F.lay(t_card + 1.2, ab=HIDE, md=dict(SOLO, o=0))
+    F.lay(t_card + 1.8, md=SOLO)
     persona(F.t, 1e9, "Munishwer Chander Chadda", "अप्रूवर · Approver (Managing Director)", AV[MD])
     p0 = len(F.persona) - 1
     # m1: the slip arrives
@@ -897,7 +898,7 @@ def chadda():
     desk.scroll.append({"t": round(tv - 0.5, 3), "to": slip["id"], "align": "top", "off": 250})
     zoom(tv - 0.4, "md", lines_target(desk, slip, "5. Shuttering", "New vendor"), z=2.0)
     mark(slip, tv, L.end + 0.3, "New vendor")
-    tr = L.w("हाल ही में")
+    tr = L.w("दस दिन")
     desk.scroll.append({"t": round(tr - 0.5, 3), "to": slip["id"], "align": "top"})
     zoom(tr - 0.4, "md", lines_target(desk, slip, "1. Cement", "Already bought"), z=2.0)
     # m4: ask a question
@@ -1007,8 +1008,8 @@ def journey():
         history(d, "evening2", t_card)
         history_group(g, [x[0] for x in GROUP], t_card)
         P[pid] = (p, d, g)
-    F.lay(t_card + 1.5, md=HIDE, **{pid: dict(x=x, y=628, s=0.84, o=0, tag=0) for pid, x in zip(P, xs)})
-    F.lay(t_card + 2.6, **{pid: dict(x=x, y=628, s=0.84, o=1, tag=1) for pid, x in zip(P, xs)})
+    F.lay(t_card + 0.6, md=HIDE, **{pid: dict(x=x, y=628, s=0.84, o=0, tag=0) for pid, x in zip(P, xs)})
+    F.lay(t_card + 1.4, **{pid: dict(x=x, y=628, s=0.84, o=1, tag=1) for pid, x in zip(P, xs)})
     ch, cd, cg = P["ch_j"]
     ab, ad, ag = P["ab_j"]
     md, mdd, _ = P["md_j"]
@@ -1046,9 +1047,10 @@ def journey():
     cd.scroll.append({"t": round(L.start + 0.6, 3), "to": cd.by_step["short_qty"][0]["id"], "align": "bottom"})
     F.ring(L.w("साइट बटन"), L.w("स्टॉक"), "ch_j", {"msg": ["d", cd.by_step["short_qty"][0]["id"]]})
     cd.scroll.append({"t": round(L.w("स्टॉक") - 0.3, 3), "to": cd.by_step["stock"][1]["id"], "align": "bottom"})
-    F.ring(L.w("स्टॉक"), L.w("हर स्लिप"), "ch_j", {"msg": ["d", cd.by_step["stock"][1]["id"]]})
-    F.item(L.w("हर स्लिप"), L.end + 0.5, kind="badge", hi="🗂 गूगल ड्राइव  ·  📊 गूगल शीट",
-           en="Every signed slip filed in Drive, every line logged in the Sheet", x=960, y=108, center=True, pop=True)
+    F.ring(L.w("स्टॉक"), L.w("गूगल जुड़ने"), "ch_j", {"msg": ["d", cd.by_step["stock"][1]["id"]]})
+    F.item(L.w("गूगल जुड़ने"), L.end + 0.5, kind="badge", hi="🗂 गूगल ड्राइव  ·  📊 गूगल शीट",
+           en="Once Google is connected: every decided slip in Drive, every line in the Sheet", x=960, y=108, center=True,
+           pop=True)
     L = F.say("j5", lead=0.4, tail=2.6)
     F.lay(L.start - 0.3, **{pid: dict(x=x, y=628, s=0.84, o=0, tag=0) for pid, x in zip(P, xs)})
     F.item(L.start, L.end + 2.6, kind="html", x=960, y=520, center=True, fout=0.6, html=(
