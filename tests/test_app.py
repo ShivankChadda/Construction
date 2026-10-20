@@ -118,3 +118,9 @@ def test_reactions_from_others_are_ignored(chat):
     for msg in parse_webhook(payload):
         chat.bot.handle(msg)
     assert len(chat.wa.sent) == n
+
+
+def test_privacy_page_for_meta_live_mode(chat):
+    c = _client(chat, privacy_contact="office@example.com")
+    r = c.get("/privacy")
+    assert r.status_code == 200 and "Test Constructions Purchase Desk: privacy policy" in r.text and "office@example.com" in r.text

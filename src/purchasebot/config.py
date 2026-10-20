@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     public_base_url: str = "http://localhost:8000"
     timezone: str = "Asia/Kolkata"
     admin_token: str = ""
+    privacy_contact: str = ""  # email or phone shown on /privacy (Meta needs a privacy policy URL to go Live)
 
     # --- Controls ---
     price_alert_pct: float = 5.0  # flag a line when the rate is this much above the last purchase
