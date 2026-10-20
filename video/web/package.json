@@ -1,0 +1,13 @@
+{
+  "name": "purchase-desk-tutorial-web",
+  "private": true,
+  "description": "The tutorial's WhatsApp phone scenes: HTML/CSS driven by a pure function of time, captured frame by frame with Playwright",
+  "type": "module",
+  "dependencies": {
+    "@fontsource/kalam": "5.2.5",
+    "@fontsource/noto-sans-devanagari": "5.2.5",
+    "@fontsource/roboto": "5.2.5",
+    "@fontsource/roboto-mono": "^5.2.5",
+    "playwright": "1.56.1"
+  }
+}

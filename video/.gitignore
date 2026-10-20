@@ -1,0 +1,6 @@
+# Videos live on Google Drive, never in Git
+build/
+output/
+web/node_modules/
+*.mp4
+*.wav

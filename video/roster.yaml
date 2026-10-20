@@ -1,0 +1,72 @@
+# The tutorial video's roster: config/roster.example.yaml with the approver's real name (the user, 20 Oct 2026).
+# Phone numbers are placeholders; video/capture.py runs the bot on them, nothing is sent.
+# Phone numbers: 10-digit Indian mobile numbers are fine (91 is added).
+# The phone number IS the identity — only the approver's number can approve.
+
+company:
+  name: "KEC"                                  # TODO: full registered name — printed on every purchase slip
+  address: "Port Blair, Andaman & Nicobar Islands"
+  gstin: ""
+
+sites:
+  # Aliases are how people write the site in the group; the bot uses them to tell which site
+  # a forwarded message is about ("Car Nicobar Sector", "ship to C/N").
+  - code: NIC
+    name: Nicobar
+    letter: N            # item refs for this site look like N17
+    aliases: [car nicobar, c/n, carnic]
+  - code: KAM
+    name: Kamorta
+    letter: K
+    aliases: [komoota]   # TODO: if "N/C" in the group means Nancowry/Kamorta, add "n/c" here
+  - code: DIG
+    name: Diglipur
+    letter: D
+    aliases: [diglipur site]
+
+people:
+  # Site engineers — send requirements, confirm deliveries, report usage
+  - name: Chandramohan
+    phone: "9000000001"
+    role: engineer
+    site: NIC
+  - name: Siddhu
+    phone: "9000000002"
+    role: engineer
+    site: DIG
+    title: Supervisor
+  - name: Ami                    # posts Diglipur requirements in the group
+    phone: "9000000007"
+    role: engineer
+    site: DIG
+  - name: "Tambi Uncle"          # TODO: confirm — Kamorta engineer ("KEC Tambi Uncle" in the group)
+    phone: "9000000003"
+    role: engineer
+    site: KAM
+  # TODO: "Agr Sup Raseed" is tagged on Diglipur dispatches — add him here if he receives material.
+
+  # Logistics manager — builds purchase slips, marks dispatch
+  - name: Abbas
+    phone: "9000000004"
+    role: logistics
+
+  # Approver — the ONLY person whose "yes" produces a signed slip.
+  # Add a second approver only if you want someone to approve while he is unreachable;
+  # their own name (not his) will appear on slips they approve.
+  - name: "Munishwer Chander Chadda"
+    initials: "MCC"
+    title: "Managing Director"
+    phone: "9000000005"
+    role: approver
+
+  # Observers — get copies of approved slips and the daily summary; cannot approve
+  - name: Shivank
+    phone: "9000000006"
+    role: observer
+
+vendors:
+  # Known suppliers. A slip line with a vendor NOT on this list is flagged "new vendor".
+  - name: Om Traders
+    aliases: [om, ome, ome trader, om trader]
+  - name: Hira Metals
+    aliases: [hera, hera metals, heera, heera metals]
