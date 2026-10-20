@@ -28,7 +28,7 @@
   --warn: #f5b400;
   --hl: rgba(255, 214, 10, 0.42);
   --ui: "Roboto", "Noto Sans Devanagari", "Noto Color Emoji", sans-serif;
-  --hi: "Noto Sans Devanagari", "Roboto", "Noto Color Emoji", sans-serif;
+  --hi: "Roboto", "Noto Sans Devanagari", "Noto Color Emoji", sans-serif;   /* the screen is in English */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--board); }
@@ -262,8 +262,8 @@ body { font-family: var(--ui); color: var(--board-ink); -webkit-font-smoothing: 
 .toc { position: absolute; left: 860px; top: 200px; }
 .toc .r { display: flex; gap: 26px; align-items: baseline; margin-bottom: 30px; opacity: 0; }
 .toc .r .tm { font: 500 34px/1 "Roboto Mono", monospace; color: var(--brand); width: 110px; }
-.toc .r .tt { font: 700 46px/1.2 var(--hi); color: var(--board-ink); }
-.toc .r .te { font: 500 28px/1.2 var(--ui); color: var(--board-muted); margin-left: 4px; }
+.toc .r .tt { font: 700 46px/1.2 var(--hi); color: var(--board-ink); white-space: nowrap; }
+.toc .r .te { font: 500 28px/1.2 var(--ui); color: var(--board-muted); margin-left: 4px; white-space: nowrap; }
 
 .big { position: absolute; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .node { position: absolute; display: flex; flex-direction: column; align-items: center; width: 240px; margin-left: -120px; }

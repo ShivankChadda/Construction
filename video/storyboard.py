@@ -301,11 +301,11 @@ OFF_L = dict(x=-420, o=0, tag=0)
 OFF_R = dict(x=2340, o=0, tag=0)
 HIDE = dict(o=0, tag=0)
 FLOW_NODES = [
-    {"icon": "👷", "hi": "साइट", "en": "Site"},
-    {"icon": "📋", "hi": "अब्बास जी", "en": "Abbas"},
-    {"icon": "✅", "hi": "चड्ढा साहब", "en": "Approval"},
-    {"icon": "🚚", "hi": "डिस्पैच", "en": "Dispatch"},
-    {"icon": "📦", "hi": "स्टॉक", "en": "Stock"},
+    {"icon": "👷", "hi": "Site", "en": "asks"},
+    {"icon": "📋", "hi": "Abbas", "en": "slip"},
+    {"icon": "✅", "hi": "Mr Chadda", "en": "approves"},
+    {"icon": "🚚", "hi": "Dispatch", "en": "sends"},
+    {"icon": "📦", "hi": "Stock", "en": "confirms"},
 ]
 
 
@@ -408,10 +408,10 @@ def intro():
     t0 = F.t
     F.item(t0, t0 + 3.6, kind="html", cls="title", fin=0.01, html=(
         '<div style="font:700 30px/1 Roboto;letter-spacing:.14em;color:#008069">KEC · KAILASH MATERIAL</div>'
-        '<div style="font:700 120px/1.25 \'Noto Sans Devanagari\';color:#12302a;margin-top:24px">पर्चेज़ डेस्क</div>'
-        '<div style="font:500 64px/1.2 Roboto;color:#557068;margin-top:6px">Purchase Desk · how it works</div>'
-        '<div style="font:500 30px/1.3 \'Noto Sans Devanagari\';color:#557068;margin-top:40px">व्हाट्सऐप पर ख़रीद और अप्रूवल · '
-        'Purchases and approvals on WhatsApp</div>'), x=0, y=0)
+        '<div style="font:700 120px/1.2 Roboto;color:#12302a;margin-top:24px">Purchase Desk</div>'
+        '<div style="font:500 64px/1.2 Roboto;color:#557068;margin-top:6px">How it works</div>'
+        '<div style="font:500 30px/1.3 Roboto;color:#557068;margin-top:40px">Purchases and approvals on WhatsApp</div>'),
+        x=0, y=0)
     F.t += 3.6
     # i1: one phone, the Purchase Desk chat
     ab = Phone("abbas_i")
@@ -421,45 +421,44 @@ def intro():
     F.lay(0, abbas_i=dict(OFF_R, x=520, y=548, s=1.12))
     L = F.say("i1", lead=0.2)
     F.lay(L.start, abbas_i=SOLO)
-    F.step(L.start, L.end + 0.2, k="पर्चेज़ डेस्क · Purchase Desk", h="एक व्हाट्सऐप नंबर",
-           e="One WhatsApp number that keeps track of every requirement, every slip and every approval.")
+    F.step(L.start, L.end + 0.2, k="Purchase Desk", h="One WhatsApp number",
+           e="It keeps track of every requirement, every slip and every approval.")
     zoom(L.w("व्हाट्सऐप"), "abbas_i", {"rect": [0, 40, 393, 60]}, z=2.2, dy=120)
     overview(L.w("हर ज़रूरत"))
     # i2: the group stays as it is
     L = F.say("i2")
     ab.screen(L.w("कैलाश"), "chat:g")
     history_group(grp, [g for g, *_ in GROUP if g != "g_dsp"], 0)
-    F.step(L.start, L.w("वह एक क्लर्क"), k="ग्रुप · The group", h="कैलाश मटीरियल ग्रुप वैसे ही चलेगा",
+    F.step(L.start, L.w("वह एक क्लर्क"), k="The group", h="The group stays as it is",
            e="The Kailash Material group keeps running exactly as it does now.")
-    F.step(L.w("वह एक क्लर्क"), L.end + 0.2, k="चुपचाप क्लर्क · A silent clerk", h="ग्रुप में कुछ नहीं लिखता",
-           e="It never posts in the group. Each person hears only about their own part of the work.")
+    F.step(L.w("वह एक क्लर्क"), L.end + 0.2, k="A silent clerk", h="It never posts in the group",
+           e="Each person hears only about their own part of the work.")
     # i3 + i4: the flow, person by person
     L3 = F.say("i3", lead=0.3)
     F.lay(L3.start - 0.2, abbas_i=OFF_L)
     xs = [250, 605, 960, 1315, 1670]
-    nodes = [("👷", "साइट इंजीनियर", "Site engineers: what's needed"), ("🧾", "अब्बास जी", "Abbas: prices, makes the slip"),
-             ("✅", "चड्ढा साहब", "Mr Chadda: approves"), ("🚚", "अब्बास जी", "Abbas: buys, sends"),
-             ("📦", "साइट", "Site: confirms → stock")]
+    nodes = [("👷", "Site engineers", "say what's needed"), ("🧾", "Abbas", "prices it, makes the slip"),
+             ("✅", "Mr Chadda", "approves"), ("🚚", "Abbas", "buys and sends"),
+             ("📦", "Site", "confirms → stock")]
     L4_start = F.t + 0.25
     L4 = F.say("i4")
     at = [L3.w("साइट इंजीनियर"), L3.w("अब्बास जी"), L3.w("चड्ढा साहब"), L4.w("ख़रीदते"), L4.w("साइट बटन")]
     end = L4.end + 0.4
     F.item(L3.start, end, kind="html", x=960, y=150, center=True, html=(
-        '<div style="font:700 54px/1.3 \'Noto Sans Devanagari\';color:#12302a;text-align:center">काम कैसे चलता है</div>'
-        '<div style="font:500 34px/1.3 Roboto;color:#557068;text-align:center">How the work moves</div>'))
+        '<div style="font:700 56px/1.3 Roboto;color:#12302a;text-align:center">How the work moves</div>'))
     for i, ((ic, hi, en), x, t) in enumerate(zip(nodes, xs, at)):
         F.item(t, end, kind="node", icon=ic, hi=hi, en=en, x=x, y=420, pop=True)
         if i:
             F.item(t - 0.15, end, kind="edge", x=xs[i - 1] + 72, y=480, x2=x - 80, y2=480)
         F.sfx.append({"t": round(t, 3), "kind": "pop"})
-    F.item(L4.w("स्टॉक"), end, kind="badge", hi="स्टॉक वही, जो सच में पहुँचा", en="Stock = what really arrived",
+    F.item(L4.w("स्टॉक"), end, kind="badge", hi="Stock = what really arrived", en="",
            x=960, y=800, center=True, pop=True)
     # i5: everyone saves the number and says hi
     L = F.say("i5", lead=0.4, tail=1.2)
     trio = {}
-    for pid, who, hi_, en_ in (("ch_i", "Chandramohan", "चंद्रमोहन · साइट", "Chandramohan · site engineer"),
-                               ("ab_i", "Abbas", "अब्बास जी", "Abbas · logistics"),
-                               ("md_i", MD, "चड्ढा साहब", "Mr Chadda · approver")):
+    for pid, who, hi_, en_ in (("ch_i", "Chandramohan", "Chandramohan", "Site engineer"),
+                               ("ab_i", "Abbas", "Abbas", "Logistics"),
+                               ("md_i", MD, "Mr Chadda", "Approver")):
         p = Phone(pid, hi_, en_)
         c = p.chat(desk_chat("d", who))
         p.screen(0, "chat:d", "cut")
@@ -468,8 +467,8 @@ def intro():
     F.lay(L.start - 0.5, **{pid: dict(x=x, y=600, s=0.9, o=0, tag=0) for pid, x in zip(trio, xs3)})
     F.lay(L.start - 0.3, **{pid: dict(x=x, y=600, s=0.9, o=1, tag=1) for pid, x in zip(trio, xs3)})
     F.item(L.start, L.end + 1.0, kind="html", x=960, y=62, center=True, html=(
-        '<div style="font:700 40px/1.3 \'Noto Sans Devanagari\';color:#12302a;white-space:nowrap">नंबर सेव कीजिए: '
-        '<span style="color:#008069">Purchase Desk</span> · फिर <span style="color:#008069">hi</span> भेजिए</div>'))
+        '<div style="font:700 40px/1.3 Roboto;color:#12302a;white-space:nowrap">Save the number as '
+        '<span style="color:#008069">Purchase Desk</span>, then send <span style="color:#008069">hi</span></div>'))
     for k, (pid, (p, c, who)) in enumerate(trio.items()):
         step = "hi_" + who.split()[0].lower()
         t_send = L.w("हाय") + 0.2 + 0.45 * k
@@ -482,7 +481,8 @@ def intro():
 
 def engineer():
     F = FILM
-    t_card = F.card("भाग 1 · Part 1", "साइट इंजीनियर", "Site engineers", "Chandramohan · Siddhu · Tambi Uncle · Ami")
+    t_card = F.card("Part 1", "Site engineers", "Post in the group · tap when material arrives",
+                    "Chandramohan · Siddhu · Tambi Uncle · Ami")
     F.chapters.append(("engineer", t_card))
     ch = Phone("ch")
     grp = ch.chat(group_chat("g", "Chandramohan"))
@@ -493,13 +493,13 @@ def engineer():
     F.lay(t_card + 1.2, ch=dict(SOLO, o=0))
     F.lay(t_card + 1.8, ch=SOLO)
     overview(t_card)
-    persona(F.t, 1e9, "Chandramohan", "साइट इंजीनियर, निकोबार · Site engineer, Nicobar", AV["Chandramohan"])
+    persona(F.t, 1e9, "Chandramohan", "Site engineer, Nicobar", AV["Chandramohan"])
     p0 = len(F.persona) - 1
     # e1: post in the group as always
     L = F.say("e1", lead=0.5)
     flow(L.start, 1e9, 0)
     f0 = len(F.flow) - 1
-    F.step(L.start, L.end, k="स्टेप 1 · Step 1", h="ज़रूरत ग्रुप में डालिए", e="Post the requirement in the group, as before.")
+    F.step(L.start, L.end, k="Step 1", h="Post in the group", e="Post the requirement in the group, as before.")
     tp = L.w("ज़रूरत") - 0.3
     type_send(ch, grp, POST_NIC, tp, tp + 3.2, tp + 3.6)
     grp.by_step["g_nic"][0]["at"] = round(tp + 3.65, 3)
@@ -511,8 +511,8 @@ def engineer():
     L = F.say("e2")
     m = grp.by_step["g_nic"][0]
     mark(m, L.w("साइट का नाम"), L.end + 0.3, "Car Nicobar")
-    F.step(L.start, L.end, h="मैसेज में साइट का नाम", e="Write the site's name in the message or the photo's caption. Without it, Abbas picks the site with a tap.",
-           cmd="Car Nicobar site requirement", lbl="जैसे · for example")
+    F.step(L.start, L.end, h="Name the site", e="In the message or the photo's caption. Without it, Abbas has to pick the site with a tap.",
+           cmd="Car Nicobar site requirement", lbl="For example")
     # e3: Abbas logs it; the engineer hears back
     L = F.say("e3")
     tn = L.w("आपकी ज़रूरत")
@@ -522,21 +522,21 @@ def engineer():
     ch.tap(tn + 1.4, {"rect": [10, 8, 373, 72]})
     ch.screen(tn + 1.55, "chat:d")
     show(desk, "summary", tn - 0.05)
-    F.step(L.start, L.end, h="दर्ज होते ही आपको मैसेज", e="When Abbas logs it, the Purchase Desk tells you.")
+    F.step(L.start, L.end, h="You get a message", e="When Abbas logs it, the Purchase Desk tells you.")
     # e4: every item gets a number
     L = F.say("e4", tail=0.3)
     fyi = desk.by_step["summary"][0]
     zoom(L.start - 0.2, "ch", {"msg": ["d", fyi["id"]]}, z=1.95)
     mark(fyi, L.w("एन फ़ॉर"), L.w("कुछ ग़लत"), "N2", "N4")
     overview(L.w("कुछ ग़लत"))
-    F.step(L.w("कुछ ग़लत") + 0.3, L.end + 0.2, h="N निकोबार · K कमोर्टा · D डिगलीपुर",
+    F.step(L.w("कुछ ग़लत") + 0.3, L.end + 0.2, h="N Nicobar · K Kamorta · D Diglipur",
            e="Every item gets a number. Something wrong? Tell Abbas.")
     # e5: the decision
     L = F.say("e5")
     show(desk, "confirm", L.w("फ़ैसला"))
     F.flow.append(dict(t0=round(L.start, 3), t1=1e9, active=[2]))
     F.flow[f0]["t1"] = round(L.start, 3)
-    F.step(L.start, L.end, h="क्या ख़रीदा जाएगा", e="When the slip is decided, you see what will be bought.")
+    F.step(L.start, L.end, h="What will be bought", e="When the slip is decided, you see which of your items will be bought.")
     zoom(L.w("कौन सी चीज़"), "ch", {"msg": ["d", desk.by_step["confirm"][0]["id"]]}, z=1.8)
     overview(L.end + 0.1)
     # e6: the dispatch list
@@ -544,7 +544,7 @@ def engineer():
     F.flow[-1]["t1"] = round(L.start, 3)
     flow(L.start, 1e9, 3)
     show(desk, "dsp_nic", L.w("पर्चेज़ डेस्क आपको"), gap=0.8)
-    F.step(L.start, L.end + 0.3, k="आपका नया काम · Your one new job", h="सामान भेजा गया",
+    F.step(L.start, L.end + 0.3, k="Your one new job", h="Material is on its way",
            e="The Purchase Desk sends the list: what was sent, and on which ship or bus.")
     dsp = desk.by_step["dsp_nic"][0]
     zoom(L.w("क्या गया"), "ch", {"msg": ["d", dsp["id"]]}, z=1.85)
@@ -552,11 +552,11 @@ def engineer():
     overview(L.end + 0.2)
     # e7: all received (Siddhu, Diglipur)
     L = F.say("e7", lead=0.6)
-    sd = Phone("sd", "सिद्धू · डिगलीपुर", "Siddhu · Diglipur")
+    sd = Phone("sd", "Siddhu · Diglipur", "Supervisor")
     sdesk = sd.chat(desk_chat("d", "Siddhu"))
     history(sdesk, "rcv_dig", t_card)
     sd.screen(0, "chat:d", "cut")
-    ch.tag_hi, ch.tag_en = "चंद्रमोहन · निकोबार", "Chandramohan · Nicobar"
+    ch.tag_hi, ch.tag_en = "Chandramohan · Nicobar", "Site engineer"
     F.lay(L.start - 0.5, ch=dict(x=620, y=612, s=0.92, o=1, tag=1), sd=dict(x=1300, y=612, s=0.92, o=0, tag=0))
     F.lay(L.start - 0.4, sd=dict(x=1300, y=612, s=0.92, o=1, tag=1))
     F.persona[p0]["t1"] = round(L.start - 0.6, 3)
@@ -565,39 +565,38 @@ def engineer():
     F.ring(L.w("ऑल रिसीव्ड") - 0.4, L.w("ऑल रिसीव्ड") + 0.5, "sd",
            {"btn": ["d", next(m["id"] for m in sdesk.msgs if m.get("wamid") == STEPS["rcv_dig"]["on"]), 0]})
     F.item(L.start, L.end + 0.4, kind="html", x=960, y=70, center=True, html=(
-        '<div style="font:700 38px/1.3 \'Noto Sans Devanagari\';color:#12302a;white-space:nowrap">सब आया? '
-        '<span style="color:#008069">✅ All received</span> दबाइए · <span style="font:500 30px Roboto;color:#557068">'
-        'Everything came? Tap it.</span></div>'))
+        '<div style="font:700 40px/1.3 Roboto;color:#12302a;white-space:nowrap">Everything came? Tap '
+        '<span style="color:#008069">✅ All received</span></div>'))
     # e11: forgot? one reminder after two days
     L = F.say("e11", lead=0.5)
     F.lay(L.start - 0.6, ch=SOLO, sd=dict(x=2340, y=612, s=0.92, o=0, tag=0))
-    persona(L.start - 0.3, 1e9, "Chandramohan", "साइट इंजीनियर, निकोबार · Site engineer, Nicobar", AV["Chandramohan"])
+    persona(L.start - 0.3, 1e9, "Chandramohan", "Site engineer, Nicobar", AV["Chandramohan"])
     p1 = len(F.persona) - 1
     flow(L.start - 0.3, 1e9, 3)
     f1 = len(F.flow) - 1
     show(desk, "remind", L.w("दो दिन बाद"), gap=0.8)
-    F.step(L.start, L.end + 0.2, h="भूल गए? एक बार याद दिलाता है", e="Forgot to tap? One reminder after two days.")
+    F.step(L.start, L.end + 0.2, h="Forgot? One reminder", e="Forgot to tap? The Purchase Desk reminds you once, after two days.")
     # e8: short or damaged
     L = F.say("e8", lead=0.4)
     tap_step(ch, desk, "short", L.w("शॉर्ट") + 0.4)
-    F.step(L.start, L.end + 0.2, h="कम आया? Short/damaged दबाइए", e="Something short or damaged? Tap Short/damaged, then write what came.")
+    F.step(L.start, L.end + 0.2, h="Short? Tap Short/damaged", e="Something short or damaged? Tap Short/damaged, then write what came.")
     q = desk.by_step["short"][1]
     zoom(L.w("लिखिए") , "ch", {"msg": ["d", q["id"]]}, z=1.8)
     # e9: 3-2
     L = F.say("e9", tail=0.7)
     mark(q, L.w("रेत"), L.end, "River sand")
     overview(L.w("लाइन तीन"))
-    F.step(L.w("लाइन तीन") + 0.2, L.end + 2.6, h="लाइन 3 में 2 आए", e="Line 3, two came: type it like this.",
-           cmd="3-2", lbl="लिखिए · type")
+    F.step(L.w("लाइन तीन") + 0.2, L.end + 2.6, h="Line 3: two came", e="Type the line number, a dash, and what arrived.",
+           cmd="3-2", lbl="Type")
     say_step(ch, desk, "short_qty", L.w("थ्री") - 0.1, L.end + 0.3)
     F.wait(1.6)
     # e10: the shortage reaches Abbas and Mr Chadda at once
     L = F.say("e10", lead=0.4, tail=0.8)
-    ab = Phone("ab_e", "अब्बास जी", "Abbas")
+    ab = Phone("ab_e", "Abbas", "Logistics")
     adesk = ab.chat(desk_chat("d", "Abbas"))
     history(adesk, "short_qty", t_card)
     ab.screen(0, "chat:d", "cut")
-    md = Phone("md_e", "चड्ढा साहब", "Mr Chadda")
+    md = Phone("md_e", "Mr Chadda", "Approver")
     mdesk = md.chat(desk_chat("d", MD))
     history(mdesk, "short_qty", t_card)
     md.screen(0, "chat:d", "cut")
@@ -612,35 +611,35 @@ def engineer():
         c.by_step["short_qty"][0]["at"] = round(ta + 0.3 * k, 3)
     F.sfx.append({"t": round(ta, 3), "kind": "pop"})
     F.item(L.start, L.end + 0.5, kind="html", x=960, y=70, center=True, html=(
-        '<div style="font:700 38px/1.3 \'Noto Sans Devanagari\';color:#12302a;white-space:nowrap">कमी की ख़बर तुरंत · '
-        '<span style="font:500 30px Roboto;color:#557068">The shortage reaches Abbas and Mr Chadda at once</span></div>'))
+        '<div style="font:700 40px/1.3 Roboto;color:#12302a;white-space:nowrap">The shortage reaches Abbas and '
+        'Mr Chadda at once</div>'))
     # e12: usage and stock (optional)
     L = F.say("e12", lead=0.5)
     F.lay(L.start - 0.6, ch=SOLO, ab_e=dict(x=960, y=600, s=0.9, o=0, tag=0), md_e=dict(x=1520, y=600, s=0.9, o=0, tag=0))
-    persona(L.start - 0.3, 1e9, "Chandramohan", "साइट इंजीनियर, निकोबार · Site engineer, Nicobar", AV["Chandramohan"])
+    persona(L.start - 0.3, 1e9, "Chandramohan", "Site engineer, Nicobar", AV["Chandramohan"])
     p2 = len(F.persona) - 1
     flow(L.start - 0.3, 1e9, 4)
     f2 = len(F.flow) - 1
-    F.step(L.start, L.w("और स्टॉक"), k="चाहें तो · Optional", h="इस्तेमाल दर्ज कीजिए", e="Record what was used.",
-           cmd="used 10 bag cement", lbl="लिखिए · type")
+    F.step(L.start, L.w("और स्टॉक"), k="Optional", h="Record what was used", e="Message the Purchase Desk directly.",
+           cmd="used 10 bag cement", lbl="Type")
     say_step(ch, desk, "used", L.w("सामान इस्तेमाल"), L.w("और स्टॉक") - 0.2)
-    F.step(L.w("और स्टॉक"), L.end + 1.0, k="चाहें तो · Optional", h="साइट का स्टॉक", e="See the site's stock.",
-           cmd="stock", lbl="लिखिए · type")
+    F.step(L.w("और स्टॉक"), L.end + 1.0, k="Optional", h="See the site's stock", e="What is at site now.",
+           cmd="stock", lbl="Type")
     say_step(ch, desk, "stock", L.w("और स्टॉक") + 0.2, L.end - 0.3)
     F.wait(0.8)
     # e13: the two things
     L = F.say("e13", lead=0.3, tail=1.2)
-    F.step(L.start, L.w("और सामान"), k="याद रखिए · Remember", h="1. ज़रूरत ग्रुप में, साइट के नाम के साथ",
-           e="Requirements go in the group, with the site's name.")
-    F.step(L.w("और सामान"), L.end + 1.0, k="याद रखिए · Remember", h="2. सामान आए, तो बटन दबाइए",
-           e="When material arrives, tap the button.")
+    F.step(L.start, L.w("और सामान"), k="Remember", h="1. Requirements go in the group",
+           e="With the site's name.")
+    F.step(L.w("और सामान"), L.end + 1.0, k="Remember", h="2. Material arrives? Tap the button",
+           e="All received, or Short/damaged.")
     F.persona[p2]["t1"] = round(L.end + 1.0, 3)
     F.flow[f2]["t1"] = round(L.end + 1.0, 3)
 
 
 def abbas():
     F = FILM
-    t_card = F.card("भाग 2 · Part 2", "अब्बास जी", "Abbas · Logistics", "Forward · Slip · Dispatch")
+    t_card = F.card("Part 2", "Abbas · Logistics", "Forward · write the slip · dispatch", "Abbas")
     F.chapters.append(("abbas", t_card))
     overview(t_card)
     ab = Phone("ab")
@@ -659,17 +658,17 @@ def abbas():
         "picks": []}
     F.lay(t_card + 1.2, ch=HIDE, ab=dict(SOLO, o=0))
     F.lay(t_card + 1.8, ab=SOLO)
-    persona(F.t, 1e9, "Abbas", "लॉजिस्टिक्स · Logistics", AV["Abbas"])
+    persona(F.t, 1e9, "Abbas", "Logistics", AV["Abbas"])
     p0 = len(F.persona) - 1
     # a1
     L = F.say("a1", lead=0.5)
     flow(L.start, 1e9, 1)
     f0 = len(F.flow) - 1
-    F.step(L.start, L.end + 0.2, k="तीन काम · Three jobs", h="1 फ़ॉरवर्ड · 2 स्लिप · 3 डिस्पैच",
-           e="Forward from the group · make the slip · send the material")
+    F.step(L.start, L.end + 0.2, k="Three jobs", h="Forward · Slip · Dispatch",
+           e="Forward from the group, make the slip, send the material.")
     # a2: select the group posts
     L = F.say("a2")
-    F.step(L.start, L.end + 0.2, k="स्टेप 1 · Step 1", h="एक मैसेज दबाकर रखिए, फिर बाक़ी चुनिए",
+    F.step(L.start, L.end + 0.2, k="Step 1", h="Hold one post, tap the others",
            e="Press and hold one requirement post, then tap the other new posts.")
     ids = [grp.by_step[g][0]["id"] for g in ("g_nic", "g_voice", "g_photo", "g_chat")]
     th = L.w("दबाकर रखिए") - 0.2
@@ -696,7 +695,7 @@ def abbas():
     for k, s in enumerate(("fwd_nic", "fwd_voice", "fwd_photo", "fwd_chat")):
         for m in desk.by_step[s]:
             m["at"] = round(tsend + 0.55 + 0.12 * k, 3)
-    F.step(L.start, L.end + 0.2, h="फ़ॉरवर्ड → पर्चेज़ डेस्क", e="Tap Forward, pick Purchase Desk, send.")
+    F.step(L.start, L.end + 0.2, h="Forward → Purchase Desk", e="Tap Forward, pick Purchase Desk, send.")
     # a4: one summary
     L = F.say("a4", tail=0.3)
     show(desk, "summary", L.w("एक ही समरी") - 0.3, gap=0.9)
@@ -704,7 +703,7 @@ def abbas():
     zoom(L.w("एक ही समरी") + 0.4, "ab", {"msg": ["d", sm["id"]]}, z=1.75)
     mark(sm, L.w("एक ही समरी") + 0.6, L.end + 0.2, "NICOBAR", "N4")
     mark(sm, L.w("एक ही समरी") + 0.9, L.end + 0.2, "DIGLIPUR", "D3")
-    F.step(L.start, L.w("एक ही समरी"), h="हर पोस्ट पढ़कर, साइट के हिसाब से", e="It reads every post, the voice note and the photo too.")
+    F.step(L.start, L.w("एक ही समरी"), h="One summary, sorted by site", e="It reads every post, the voice note and the photo too.")
     # a5: chat is skipped
     L = F.say("a5", tail=0.3)
     mark(sm, L.start, L.end + 0.2, "No materials")
@@ -718,17 +717,17 @@ def abbas():
     # a7: fixing a logged item
     L = F.say("a7", lead=0.3)
     overview(L.start - 0.3)
-    F.step(L.start, L.w("और कोई चीज़"), h="मात्रा ग़लत है?", e="Wrong quantity? Type the item number and the right quantity.",
-           cmd="N2 60 bag", lbl="लिखिए · type")
-    F.step(L.w("और कोई चीज़"), L.end + 0.3, h="कोई चीज़ हटानी है?", e="Take an item off the list.", cmd="remove N2",
-           lbl="लिखिए · type")
+    F.step(L.start, L.w("और कोई चीज़"), h="Wrong quantity?", e="Type the item number and the right quantity.",
+           cmd="N2 60 bag", lbl="Type")
+    F.step(L.w("और कोई चीज़"), L.end + 0.3, h="Take an item off", e="It comes off the open list.", cmd="remove N2",
+           lbl="Type")
     # a8: list
     L = F.say("a8")
     F.flow[f0]["t1"] = round(L.start, 3)
     flow(L.start, 1e9, 1)
     f1 = len(F.flow) - 1
-    F.step(L.start, L.end + 0.3, k="स्टेप 2 · Step 2", h="लिस्ट लिखिए", e="All open requirements by site, with a PDF for the market.",
-           cmd="list", lbl="लिखिए · type")
+    F.step(L.start, L.end + 0.3, k="Step 2", h="Type list", e="All open requirements by site, with a PDF for the market.",
+           cmd="list", lbl="Type")
     say_step(ab, desk, "list", L.w("लिस्ट लिखिए"), L.w("सारी खुली") - 0.1, gap=1.0)
     lst = desk.by_step["list"][1]
     zoom(L.w("साइट के हिसाब"), "ab", {"msg": ["d", lst["id"]]}, z=1.7, dy=-60)
@@ -736,8 +735,8 @@ def abbas():
     overview(L.end + 0.2)
     # a9: the slip lines
     L = F.say("a9", tail=0.4)
-    F.step(L.start, L.end + 3.2, h="आइटम · दुकान · रेट", e="Item number, shop, rate. One shop and one rate per line.",
-           cmd="N2 Om Traders 420\nN3 Hira Metals 62000\nK2 Sagar Hardware 1450", lbl="जैसे · for example")
+    F.step(L.start, L.end + 3.2, h="Item · shop · rate", e="One shop and one rate per line.",
+           cmd="N2 Om Traders 420\nN3 Hira Metals 62000\nK2 Sagar Hardware 1450", lbl="For example")
     ts = L.w("आइटम का नंबर")
     say_step(ab, desk, "slip", ts, L.end + 2.8, cps=22, gap=1.2)
     F.wait(2.6)
@@ -761,7 +760,7 @@ def abbas():
     L = F.say("a12", tail=0.6)
     desk.scroll.append({"t": round(L.start, 3), "to": desk.by_step["slip"][2]["id"], "align": "bottom"})
     overview(L.start)
-    F.step(L.start + 0.3, L.end + 0.4, h="📤 Send for approval दबाइए", e="Mr Chadda sees the same warnings. All in order? Send.")
+    F.step(L.start + 0.3, L.end + 0.4, h="Tap 📤 Send for approval", e="Mr Chadda sees the same warnings. All in order? Send.")
     tap_step(ab, desk, "send", L.w("सेंड फ़ॉर") + 0.6, gap=0.8)
     # a13: a question comes; swipe to answer
     L = F.say("a13", tail=0.5)
@@ -778,8 +777,8 @@ def abbas():
     type_send(ab, desk, ans, L.w("जवाब लिखिए"), L.w("जवाब लिखिए") + 2.4, tsend, quote=quote_of(STEPS["answer"]["quote"]),
               qt=tsw + 0.35)
     show(desk, "answer", tsend + 0.05)
-    F.step(L.start, L.end + 2.2, k="सवाल का जवाब · Answering", h="मैसेज को दाईं ओर स्वाइप कीजिए",
-           e="Swipe the question to the right, type your answer, send. It goes straight to Mr Chadda.")
+    F.step(L.start, L.end + 2.2, k="Answering", h="Swipe the question to the right",
+           e="Type your answer and send. It goes straight to Mr Chadda.")
     F.wait(2.0)
     # a14: the signed slip
     L = F.say("a14", tail=0.3)
@@ -792,8 +791,8 @@ def abbas():
     mark(pa, L.start, L.end + 0.5, "Buy only")
     zoom(L.start - 0.2, "ab", lines_target(desk, pa, "Verification", "Buy only"), z=1.9)
     overview(L.end - 0.6)
-    F.step(L.end - 0.5, L.end + 0.8, k="नियम · The rule", h="सिर्फ़ साइन की हुई स्लिप का सामान",
-           e="Buy only what the signed slip says, from the shop it names.")
+    F.step(L.end - 0.5, L.end + 0.8, k="The rule", h="Buy only what the signed slip says",
+           e="From the shop it names.")
     # a19: the morning list
     L = F.say("a19", lead=0.5)
     F.flow[f2]["t1"] = round(L.start, 3)
@@ -801,14 +800,14 @@ def abbas():
     f3 = len(F.flow) - 1
     show(desk, "evening", L.w("आठ बजे"))      # nothing for Abbas in the evening tick; kept for the order
     show(desk, "morning", L.w("आज की लिस्ट") - 0.2)
-    F.step(L.start, L.end + 0.3, k="हर सुबह 8 बजे · Every morning", h="आज की लिस्ट",
+    F.step(L.start, L.end + 0.3, k="Every morning at 8", h="Today's list",
            e="What each site is waiting for, and what is approved but not yet sent.")
     zoom(L.w("आज की लिस्ट") + 0.3, "ab", {"msg": ["d", desk.by_step["morning"][0]["id"]]}, z=2.0)
     overview(L.end)
     # a16: post the dispatch in the group, then forward it
     L = F.say("a16", tail=0.4)
-    F.step(L.start, L.end + 3.0, k="स्टेप 3 · Step 3", h="भेजने की पोस्ट भी फ़ॉरवर्ड",
-           e="Post the dispatch in the group as now (photo + which bus or ship), then forward it too.")
+    F.step(L.start, L.end + 3.0, k="Step 3", h="Forward the dispatch post too",
+           e="Post the dispatch in the group as now (photo + which bus or ship), then forward it.")
     ab.screen(L.start + 0.2, "chat:g", "pop")
     gd = grp.by_step["g_dsp"][0]
     gd["at"] = round(L.w("लिस्ट की फ़ोटो"), 3)
@@ -840,21 +839,21 @@ def abbas():
     # a18: or type it
     L = F.say("a18", tail=0.6)
     overview(L.start - 0.2)
-    F.step(L.start, L.end + 2.0, h="या सीधे लिखिए", e="No group post? Type the dispatch directly.",
-           cmd="dispatch PS-0002 Nicobar MV Campbell Bay", lbl="लिखिए · type")
+    F.step(L.start, L.end + 2.0, h="Or type it", e="No group post? Type the dispatch directly.",
+           cmd="dispatch PS-0002 Nicobar MV Campbell Bay", lbl="Type")
     say_step(ab, desk, "dsp_nic", L.w("डिस्पैच"), L.end + 0.6, cps=16)
     F.wait(1.4)
     # a20: the three things
     L = F.say("a20", lead=0.3, tail=1.2)
-    F.step(L.start, L.end + 1.0, k="याद रखिए · Remember", h="ग्रुप से फ़ॉरवर्ड · लाइन लिखकर स्लिप · डिस्पैच भी फ़ॉरवर्ड",
-           e="Forward from the group · write lines for the slip · forward the dispatch post too")
+    F.step(L.start, L.end + 1.0, k="Remember", h="Forward · write the slip · forward the dispatch",
+           e="Forward from the group, write lines for the slip, forward the dispatch post too.")
     F.persona[p0]["t1"] = round(L.end + 1.0, 3)
     F.flow[f3]["t1"] = round(L.end + 1.0, 3)
 
 
 def chadda():
     F = FILM
-    t_card = F.card("भाग 3 · Part 3", "चड्ढा साहब", "Mr Chadda · Approval", "Munishwer Chander Chadda")
+    t_card = F.card("Part 3", "Mr Chadda · Approval", "Read · ask · approve", "Munishwer Chander Chadda")
     F.chapters.append(("md", t_card))
     overview(t_card)
     md = Phone("md")
@@ -865,7 +864,7 @@ def chadda():
     md.screen(0, "chat:d", "cut")
     F.lay(t_card + 1.2, ab=HIDE, md=dict(SOLO, o=0))
     F.lay(t_card + 1.8, md=SOLO)
-    persona(F.t, 1e9, "Munishwer Chander Chadda", "अप्रूवर · Approver (Managing Director)", AV[MD])
+    persona(F.t, 1e9, "Munishwer Chander Chadda", "Approver · Managing Director", AV[MD])
     p0 = len(F.persona) - 1
     # m1: the slip arrives
     L = F.say("m1", lead=0.6)
@@ -879,8 +878,8 @@ def chadda():
     ms[1]["at"] = round(L.w("फिर पूरी लिस्ट"), 3)
     ms[2]["at"] = round(L.w("नीचे तीन बटन"), 3)
     F.sfx.append({"t": ms[0]["at"], "kind": "pop"})
-    F.step(L.start, L.end + 0.3, k="स्लिप आई · A slip arrives", h="पीडीएफ़, पूरी लिस्ट, तीन बटन",
-           e="Every slip comes to you here: the PDF, the full list, and three buttons.")
+    F.step(L.start, L.end + 0.3, k="A slip arrives", h="PDF, full list, three buttons",
+           e="Every purchase slip comes to you here.")
     desk.scroll.append({"t": round(L.w("फिर पूरी लिस्ट") + 0.6, 3), "to": ms[1]["id"], "align": "top"})
     desk.scroll.append({"t": round(L.w("नीचे तीन बटन") + 0.1, 3), "to": ms[2]["id"], "align": "bottom"})
     zoom(L.w("नीचे तीन बटन") + 0.2, "md", {"msg": ["d", ms[2]["id"]]}, z=1.7, dy=40)
@@ -905,31 +904,31 @@ def chadda():
     L = F.say("m4", lead=0.4)
     desk.scroll.append({"t": round(L.start - 0.3, 3), "to": ms[2]["id"], "align": "bottom"})
     overview(L.start - 0.3)
-    F.step(L.start, L.end + 2.0, k="सवाल · A question", h="बस लिख दीजिए", e="Just type it. It goes to Abbas.",
-           cmd="cement 420 kyun?", lbl="जैसे · for example")
+    F.step(L.start, L.end + 2.0, k="A question", h="Just type it", e="It goes to Abbas.",
+           cmd="cement 420 kyun?", lbl="For example")
     say_step(md, desk, "ask", L.w("जैसे"), L.end + 0.5, cps=9)
     F.wait(1.0)
     # m5: the slip waits; Abbas answers
     L = F.say("m5", tail=0.4)
     show(desk, "answer", L.w("उनका जवाब") - 0.2)
-    F.step(L.start, L.end + 0.3, h="स्लिप इंतज़ार करती है", e="The slip waits for your decision. Abbas's answer comes here.")
+    F.step(L.start, L.end + 0.3, h="The slip waits", e="The slip waits for your decision. Abbas's answer comes here.")
     zoom(L.w("उनका जवाब") + 0.4, "md", {"msg": ["d", desk.by_step["answer"][0]["id"]]}, z=1.9)
     # m6 + m7: how to decide
     L = F.say("m6", lead=0.4)
     overview(L.start - 0.3)
-    F.step(L.start, L.w("नहीं,"), k="फ़ैसला · Deciding", h="पूरी स्लिप मंज़ूर", e="Approve the whole slip",
-           cmd="haan   ok   Abbas do it", lbl="इनमें से कोई · any of these")
-    F.step(L.w("नहीं,"), L.end + 0.3, k="फ़ैसला · Deciding", h="पूरी स्लिप नामंज़ूर", e="Reject the whole slip", cmd="nahi",
-           lbl="लिखिए · type")
+    F.step(L.start, L.w("नहीं,"), k="Deciding", h="Approve the whole slip", e="",
+           cmd="haan   ok   Abbas do it", lbl="Any of these")
+    F.step(L.w("नहीं,"), L.end + 0.3, k="Deciding", h="Reject the whole slip", e="", cmd="nahi",
+           lbl="Type")
     L = F.say("m7")
-    F.step(L.start, L.w("और कुछ ही"), k="फ़ैसला · Deciding", h="एक लाइन रोकनी है", e="Everything except line 5",
-           cmd="5 nahi", lbl="लिखिए · type")
-    F.step(L.w("और कुछ ही"), L.end + 0.3, k="फ़ैसला · Deciding", h="कुछ ही लाइनें मंज़ूर", e="Only lines 1 and 2",
-           cmd="only 1 2", lbl="लिखिए · type")
+    F.step(L.start, L.w("और कुछ ही"), k="Deciding", h="Stop one line", e="Everything except line 5 is approved.",
+           cmd="5 nahi", lbl="Type")
+    F.step(L.w("और कुछ ही"), L.end + 0.3, k="Deciding", h="Approve only some lines", e="Only lines 1 and 2 are approved.",
+           cmd="only 1 2", lbl="Type")
     # m8: 5 nahi, confirm
     L = F.say("m8", tail=0.6)
-    F.step(L.start, L.end + 0.4, h="पाँच नहीं → कन्फ़र्म", e="Sagar Hardware is new: “5 nahi”, check, then Confirm.",
-           cmd="5 nahi", lbl="लिखिए · type")
+    F.step(L.start, L.end + 0.4, h="5 nahi → Confirm", e="Sagar Hardware is new: “5 nahi”, check, then Confirm.",
+           cmd="5 nahi", lbl="Type")
     say_step(md, desk, "decide", L.w("फ़ाइव") - 0.4, L.w("पर्चेज़ डेस्क एक बार") - 0.2, cps=7, gap=0.6)
     cf = desk.by_step["decide"][1]
     zoom(L.w("क्या मंज़ूर"), "md", {"msg": ["d", cf["id"]]}, z=1.9, dy=30)
@@ -945,21 +944,21 @@ def chadda():
     md.screen(L.start + 0.5, "pdf:signed")
     md.pdfs["signed"]["scroll"].append([round(L.start + 1.2, 3), 528])
     zoom(L.w("आपके नाम") - 0.2, "md", {"el": "pdfpage", "pdf": "signed", "page": 1}, z=3.0, dy=-202)
-    F.step(L.start, L.end, h="साइन की हुई स्लिप", e="Your name, your initials stamp, date, time and a verification code.")
+    F.step(L.start, L.end, h="The signed slip", e="Your name, your initials stamp, date, time and a verification code.")
     L = F.say("m10", tail=0.4)
     zoom(L.w("क्यूआर") - 0.3, "md", {"el": "pdfpage", "pdf": "signed", "page": 1}, z=3.4, dy=-202, dx=110)
     # m11: only his number
     L = F.say("m11", lead=0.4, tail=0.4)
     md.screen(L.start - 0.2, "chat:d", "pop")
     overview(L.start - 0.3)
-    F.step(L.start, L.end + 0.4, k="सबसे ज़रूरी · Most important", h="अप्रूवल सिर्फ़ आपके नंबर से",
-           e="Only your number can approve. Without your yes, no slip carries your name.")
+    F.step(L.start, L.end + 0.4, k="Most important", h="Only your number can approve",
+           e="Without your yes, no slip carries your name.")
     # m12: buttons and voice
     L = F.say("m12", lead=0.3)
     desk.scroll.append({"t": round(L.start - 0.2, 3), "to": ms[2]["id"], "align": "bottom", "off": 40})
     F.ring(L.w("अप्रूव ऑल") - 0.3, L.w("वॉइस नोट"), "md", {"msg": ["d", ms[2]["id"]]})
-    F.step(L.start, L.w("वॉइस नोट"), h="बटन भी काम करते हैं", e="Approve all · Reject · Ask logistics")
-    F.step(L.w("वॉइस नोट"), L.end + 0.3, h="वॉइस नोट से जवाब?", e="It shows what it heard; you tap Confirm.")
+    F.step(L.start, L.w("वॉइस नोट"), h="The buttons work too", e="Approve all · Reject · Ask logistics")
+    F.step(L.w("वॉइस नोट"), L.end + 0.3, h="Replying by voice note?", e="It shows what it heard; you tap Confirm.")
     # m14: the evening summary
     L = F.say("m14", lead=0.4)
     desk.scroll.append({"t": round(L.start - 0.2, 3), "to": desk.by_step["confirm"][2]["id"], "align": "bottom"})
@@ -967,24 +966,24 @@ def chadda():
     ev = desk.by_step["evening"][0]
     zoom(L.w("एक समरी") + 0.3, "md", {"msg": ["d", ev["id"]]}, z=1.7)
     overview(L.w("कभी भी"))
-    F.step(L.w("कभी भी"), L.w("और पेंडिंग"), k="कभी भी · Any time", h="इस महीने का हिसाब", e="This month's spending",
-           cmd="report", lbl="लिखिए · type")
-    F.step(L.w("और पेंडिंग"), L.end + 0.3, k="कभी भी · Any time", h="जो स्लिप इंतज़ार में हैं", e="Slips waiting for you",
-           cmd="pending", lbl="लिखिए · type")
+    F.step(L.w("कभी भी"), L.w("और पेंडिंग"), k="Any time", h="This month's spending", e="By site and by vendor.",
+           cmd="report", lbl="Type")
+    F.step(L.w("और पेंडिंग"), L.end + 0.3, k="Any time", h="Slips waiting for you", e="",
+           cmd="pending", lbl="Type")
     # m13: a shortage
     L = F.say("m13", lead=0.4, tail=0.5)
     show(desk, "short_qty", L.w("कुछ कम") + 0.2)
     F.flow[f0]["t1"] = round(L.start, 3)
     flow(L.start, 1e9, 3, 4)
     f1 = len(F.flow) - 1
-    F.step(L.start, L.end + 0.4, h="कमी की ख़बर उसी समय", e="A short delivery reaches you the moment the site reports it.")
+    F.step(L.start, L.end + 0.4, h="Shortages reach you at once", e="The moment the site reports a short delivery.")
     zoom(L.w("ख़बर") , "md", {"msg": ["d", desk.by_step["short_qty"][0]["id"]]}, z=2.0)
     # m15: the group
     L = F.say("m15", lead=0.4, tail=1.2)
     overview(L.start - 0.3)
     md.screen(L.start, "chat:g", "pop")
     g2 = grp.by_step["g2"][0]
-    F.step(L.start, L.end + 1.0, k="ग्रुप में · In the group", h="हर चीज़ पर “Abbas do it” ज़रूरी नहीं",
+    F.step(L.start, L.end + 1.0, k="In the group", h="No need for “Abbas do it” on every item",
            e="Say yes on the slip instead: that is where you see the rate.")
     grp.scroll.append({"t": round(L.start + 0.2, 3), "to": g2["id"], "align": "center"})
     F.ring(L.w("अब्बास डू इट") - 0.2, L.end, "md", {"msg": ["g", g2["id"]]})
@@ -994,14 +993,14 @@ def chadda():
 
 def journey():
     F = FILM
-    t_card = F.card("आख़िर में · Finally", "पूरा सफ़र", "The whole journey", dur=3.0)
+    t_card = F.card("Finally", "The whole journey", "One slip, from the site and back", dur=3.0)
     F.chapters.append(("journey", t_card))
     overview(t_card)
     xs = [400, 960, 1520]
     P = {}
-    for pid, who, hi_, en_ in (("ch_j", "Chandramohan", "साइट · चंद्रमोहन", "Site · Chandramohan"),
-                               ("ab_j", "Abbas", "अब्बास जी", "Abbas"),
-                               ("md_j", MD, "चड्ढा साहब", "Mr Chadda")):
+    for pid, who, hi_, en_ in (("ch_j", "Chandramohan", "Chandramohan", "Site"),
+                               ("ab_j", "Abbas", "Abbas", "Logistics"),
+                               ("md_j", MD, "Mr Chadda", "Approver")):
         p = Phone(pid, hi_, en_)
         d = p.chat(desk_chat("d", who))
         g = p.chat(group_chat("g", who))
@@ -1027,7 +1026,7 @@ def journey():
 
     L = F.say("j2", tail=0.4)
     F.ring(L.start, L.w("अब्बास जी"), "ch_j", {"msg": ["g", cg.by_step["g_nic"][0]["id"]]})
-    token(L.w("अब्बास जी") - 0.2, L.w("अब्बास जी") + 0.8, "📋 ज़रूरत · requirement", 400, 960)
+    token(L.w("अब्बास जी") - 0.2, L.w("अब्बास जी") + 0.8, "📋 Requirement", 400, 960)
     F.ring(L.w("फ़ॉरवर्ड") , L.w("रेट लगाकर"), "ab_j", {"msg": ["d", ad.by_step["summary"][0]["id"]]})
     ad.scroll.append({"t": round(L.w("रेट लगाकर") - 0.3, 3), "to": ad.by_step["send"][1]["id"], "align": "bottom"})
     F.ring(L.w("रेट लगाकर"), L.end + 0.3, "ab_j", {"msg": ["d", ad.by_step["send"][1]["id"]]})
@@ -1035,12 +1034,12 @@ def journey():
     L = F.say("j3", tail=0.4)
     mdd.scroll.append({"t": round(L.start, 3), "to": mdd.by_step["confirm"][0]["id"], "align": "bottom"})
     F.ring(L.start + 0.2, L.w("साइन की हुई"), "md_j", {"msg": ["d", mdd.by_step["decide"][0]["id"]]})
-    token(L.w("साइन की हुई"), L.w("साइन की हुई") + 1.0, "✅ साइन की हुई स्लिप · signed", 1520, 960)
+    token(L.w("साइन की हुई"), L.w("साइन की हुई") + 1.0, "✅ Signed slip", 1520, 960)
     ad.scroll.append({"t": round(L.w("साइन की हुई") + 0.6, 3), "to": ad.by_step["confirm"][0]["id"], "align": "top"})
     F.ring(L.w("साइन की हुई") + 0.8, L.w("साइट को"), "ab_j", {"msg": ["d", ad.by_step["confirm"][0]["id"]]})
     ch.screen(L.w("साइट को") - 0.4, "chat:d")
     cd.scroll.append({"t": round(L.w("साइट को") - 0.4, 3), "to": cd.by_step["confirm"][0]["id"], "align": "center"})
-    token(L.w("साइट को") - 0.3, L.w("साइट को") + 0.7, "🧾 क्या ख़रीदा जाएगा", 960, 400)
+    token(L.w("साइट को") - 0.3, L.w("साइट को") + 0.7, "🧾 What will be bought", 960, 400)
     F.ring(L.w("साइट को") + 0.6, L.end + 0.3, "ch_j", {"msg": ["d", cd.by_step["confirm"][0]["id"]]})
     L = F.say("j4", tail=0.6)
     token(L.start, L.start + 1.0, "🚚 DSP-0003", 960, 400)
@@ -1048,17 +1047,16 @@ def journey():
     F.ring(L.w("साइट बटन"), L.w("स्टॉक"), "ch_j", {"msg": ["d", cd.by_step["short_qty"][0]["id"]]})
     cd.scroll.append({"t": round(L.w("स्टॉक") - 0.3, 3), "to": cd.by_step["stock"][1]["id"], "align": "bottom"})
     F.ring(L.w("स्टॉक"), L.w("गूगल जुड़ने"), "ch_j", {"msg": ["d", cd.by_step["stock"][1]["id"]]})
-    F.item(L.w("गूगल जुड़ने"), L.end + 0.5, kind="badge", hi="🗂 गूगल ड्राइव  ·  📊 गूगल शीट",
+    F.item(L.w("गूगल जुड़ने"), L.end + 0.5, kind="badge", hi="🗂 Google Drive  ·  📊 Google Sheet",
            en="Once Google is connected: every decided slip in Drive, every line in the Sheet", x=960, y=108, center=True,
            pop=True)
     L = F.say("j5", lead=0.4, tail=2.6)
     F.lay(L.start - 0.3, **{pid: dict(x=x, y=628, s=0.84, o=0, tag=0) for pid, x in zip(P, xs)})
     F.item(L.start, L.end + 2.6, kind="html", x=960, y=520, center=True, fout=0.6, html=(
-        '<div style="text-align:center"><div style="font:700 66px/1.3 \'Noto Sans Devanagari\';color:#12302a">कोई दिक़्क़त? '
-        '<span style="color:#008069">hi</span> भेजिए</div>'
-        '<div style="font:500 40px/1.3 Roboto;color:#557068;margin-top:8px">Any trouble? Send “hi” to the Purchase Desk, '
-        'or tell Shivank.</div>'
-        '<div style="font:700 80px/1.3 \'Noto Sans Devanagari\';color:#008069;margin-top:60px">धन्यवाद · Thank you</div></div>'))
+        '<div style="text-align:center"><div style="font:700 66px/1.3 Roboto;color:#12302a">Any trouble? Send '
+        '<span style="color:#008069">hi</span></div>'
+        '<div style="font:500 40px/1.3 Roboto;color:#557068;margin-top:8px">to the Purchase Desk, or tell Shivank.</div>'
+        '<div style="font:700 80px/1.3 Roboto;color:#008069;margin-top:60px">Thank you</div></div>'))
 
 
 def toc():
@@ -1066,19 +1064,43 @@ def toc():
     t0, t1 = F.toc
     names = {c[0]: c for c in CHAPTERS}
     rows = []
-    for k, (cid, t) in enumerate(F.chapters[1:], start=1):
-        _, hi, en, _ = names[cid]
+    for cid, t in F.chapters[1:]:
+        _, _, en, _ = names[cid]
+        tag = next(c["e"] for c in F.cards if abs(c["t0"] - t) < 0.01)
         m, s = divmod(int(t), 60)
-        rows.append(f'<div class="r" style="opacity:1"><span class="tm">{m}:{s:02d}</span><span class="tt">{hi}</span>'
-                    f'<span class="te">{en}</span></div>')
-    F.item(t0, t1, kind="html", cls="toc", x=500, y=300, html="".join(rows) +
-           '<div style="font:500 26px/1.3 \'Noto Sans Devanagari\';color:#557068;margin-top:20px">अपने हिस्से पर सीधे जाइए · '
-           'Skip to your own part</div>')
+        rows.append(f'<div class="r" style="opacity:1"><span class="tm">{m}:{s:02d}</span><span class="tt">{en}</span>'
+                    f'<span class="te">{tag}</span></div>')
+    F.item(t0, t1, kind="html", cls="toc", x=420, y=300, html="".join(rows) +
+           '<div style="font:500 28px/1.3 Roboto;color:#557068;margin-top:20px">Skip to your own part</div>')
+
+
+DEVANAGARI = re.compile(r"[\u0900-\u097F]")
+
+
+def screen_text_is_english(film) -> list[str]:
+    """The user, 20 Oct 2026: "The text shouldn't be in Hindi. Keep it in English." Every string the picture shows
+    is in film.json; the only Devanagari allowed is inside a message the bot itself sends (a voice note's transcript,
+    which Sarvam returns in Hindi script). Returns the offending paths."""
+    bad = []
+
+    def walk(x, path, bot_msg=False):
+        if isinstance(x, dict):
+            is_bot = bot_msg or (x.get("dir") == "in" and x.get("kind0") in ("text", "buttons") and "sender" not in x)
+            for k, v in x.items():
+                walk(v, path + [str(k)], is_bot)
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                walk(v, path + [str(i)], bot_msg)
+        elif isinstance(x, str) and DEVANAGARI.search(x) and not bot_msg:
+            bad.append("/".join(path) + ": " + x[:50])
+    walk(film, [])
+    return bad
 
 
 def validate(film):
-    """Every message a scroll, tap, ring or camera move points at is in its chat (has a time)."""
-    bad = []
+    """Every message a scroll, tap, ring or camera move points at is in its chat (has a time); the screen is in
+    English."""
+    bad = [f"Hindi on screen: {b}" for b in screen_text_is_english(film)]
     for pid, ph in film["phones"].items():
         ids = {cid: {m["id"]: m for m in c["msgs"]} for cid, c in ph["chats"].items()}
         for cid, c in ph["chats"].items():

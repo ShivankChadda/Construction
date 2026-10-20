@@ -7,7 +7,8 @@ Writes video/output/ (git-ignored; the videos go to Google Drive):
   purchase_desk_for_site_engineers.mp4  opening + site engineers + the whole journey
   purchase_desk_for_abbas.mp4           opening + Abbas + the whole journey
   purchase_desk_for_mr_chadda.mp4       opening + Mr Chadda + the whole journey
-  *.hi.srt / *.en.srt                   subtitles: the Hinglish narration as spoken, and its English meaning
+  *.en.srt                              English subtitles (the meaning of the Hinglish narration); the screen is in
+                                        English (the user, 20 Oct 2026), so no Hindi subtitle file is made
 """
 from __future__ import annotations
 
@@ -127,10 +128,8 @@ def main():
             "-movflags", "+faststart", str(tmp))
         tmp.rename(full)
     rows = cues()
-    hi = [x for h, _ in rows for x in h]
     en = [x for _, e in rows for x in e]
     whole = [(0.0, END)]
-    write_srt(OUT / "purchase_desk_tutorial.hi.srt", hi, whole)
     write_srt(OUT / "purchase_desk_tutorial.en.srt", en, whole)
     # one version per person: the opening (without the list of parts), their chapter, and the whole journey
     intro_end = LINES["i6"]["start"] - 0.25
@@ -140,7 +139,6 @@ def main():
         nxt = CH[order[order.index(cid) + 1]]
         segs = [(0.0, intro_end), (CH[cid] + 0.4, nxt), (CH["journey"] + 0.4, END)]
         cut(name, segs)
-        write_srt(OUT / f"{name}.hi.srt", hi, segs)
         write_srt(OUT / f"{name}.en.srt", en, segs)
     for f in sorted(OUT.glob("*.mp4")):
         d = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",

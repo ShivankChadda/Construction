@@ -33,9 +33,11 @@ Asked before building (20 Oct 2026):
   quoting, since one slip is waiting).
 - **Language:** narration in Hinglish (Hindi sentences with the English words people use: slip, approve, forward,
   button), written all in Devanagari so the voice says it as a Hindi speaker does and the Hindi speech check compares
-  like with like (youtube repo L25, L255). On screen every step is in both Hindi (Devanagari) and English. Subtitles in
-  both (`.hi.srt` as spoken, `.en.srt` the meaning). Bot messages stay exactly as the bot writes them (English, with the
-  Hinglish replies people type).
+  like with like (youtube repo L25, L255). **The screen is in English** (feedback round 1): every step, label, card,
+  heading and name tag. Subtitles in English (`.en.srt`, the meaning of the narration). Bot messages stay exactly as
+  the bot writes them (English, with the Hinglish replies people type); the one exception is the bot quoting a Hindi
+  voice note back in Hindi script, which is what Sarvam's `saaras:v4` returns (its docs show Devanagari output in the
+  default mode), so Abbas sees on screen what he will see on his phone.
 - **Voice:** ElevenLabs `KWuQEGxZQtpWhRutt6g6` (eleven_multilingual_v2, speed 1.0), the voice the user chose for Hinglish
   (youtube repo, film 29, 15 Oct 2026). Each line voiced on its own. 59 lines, 9.1 min of speech, 154 words a minute.
 - **Names in the narration:** "अब्बास जी", "चड्ढा साहब" (respectful, and what the team says), and "आप" in his own chapter.
@@ -46,7 +48,7 @@ Asked before building (20 Oct 2026):
 - **Picture:** an Android-WhatsApp-style phone (light theme, green header, real bubbles, buttons, forwarded labels,
   quoted replies, PDF previews, voice notes, photos, selection mode, the Forward picker, the PDF viewer, notification
   banners), built in HTML/CSS and drawn frame by frame from the time alone (`web/engine.js`). No WhatsApp logo or sound
-  is used. Beside the phone, a step panel in Hindi and English, the person's name and role, and a five-step flow strip.
+  is used. Beside the phone, a step panel in English, the person's name and role, and a five-step flow strip.
   The camera moves in to read a message (text 30-40 px on a 1080 frame, readable on a phone held sideways) and the
   panel steps aside while it does.
 - **Sound:** narration at -14 LUFS; soft synthesised UI sounds (message, send, tap, notification, chapter whoosh) and a
@@ -92,11 +94,14 @@ Asked before building (20 Oct 2026):
 | # | Date | Cut | Where | QC |
 |---|---|---|---|---|
 | 1 | 10-20 04:30 | full film 10:46; site engineers 4:16, Abbas 5:26, Mr Chadda 4:55; Hindi + English subtitles | Drive `Kailash Construction/Purchase Desk tutorial/` ([folder](https://drive.google.com/drive/folders/1QY9kkkLSsY3T4PzdAWtncxBcbwHb4Ytu), [full film](https://drive.google.com/file/d/17qEWKqO-WovI-hIXPST5JATc000hrljl/view), [engineers](https://drive.google.com/file/d/1jA_KfyDP7ODve2StXZaxWwEFfZaFsOma/view), [Abbas](https://drive.google.com/file/d/1AWW6Kosu8L3IMNKcID3p9AQJgqIjKYd_/view), [Mr Chadda](https://drive.google.com/file/d/1q_FBnsvJYsO6AYredIcQCoJT0bD12SPI/view)), MD5 verified | `qc.py` PASS: h264 1920x1080 30 fps, -14.0 LUFS, -1.7 dBTP, no black, no silence, 5 chapters. WARN: 33 holds of 5-10 s where the phone sits still while the voice explains (intended: time to read); no thumbnail (not a YouTube upload) |
+| 2 | 10-20 | round 1 fix: English on screen, English subtitles only; same lengths (10:46, 4:16, 5:26, 4:55) | Drive, same files and links (previous versions in `Old versions/`; the Hindi subtitles moved there too), MD5 verified | `qc.py` PASS on all four (full film -14.0 LUFS, -1.7 dBTP, 5 chapters; cuts -13.9 to -14.3 LUFS, -1.8 dBTP); no Devanagari in `film.json` outside the bot's own voice-note quote; text check 1 known frame |
+
 
 ## Feedback rounds
 
 | # | Date | The user said (verbatim) | What was wrong | Fix and commit |
 |---|---|---|---|---|
+| 1 | 10-20 | "The text shouldn't be in Hindi. Keep it in English." | One kind of fault, 136 places: every on-screen string outside the WhatsApp messages carried Hindi (Devanagari): 91 step-panel lines, 17 headings, labels and the parts list, 10 phone name tags, 8 chapter-card lines, 5 role lines, 5 flow-strip labels; plus the Hindi subtitle files. The brief's "Hinglish, Hindi and English both" was read as bilingual text; it meant the voice. | All 136 rewritten in English (panel headline + English detail; cards, tags, flow strip, parts list, end card); fonts set to Roboto; Hindi subtitles dropped (moved into Drive's `Old versions/`, not deleted). The narration is unchanged. `storyboard.validate()` now fails on any Devanagari in `film.json` outside a bot message (`screen_text_is_english`, tested with a planted string). Text check: 1 frame (the known chat slide at 2:04, clean by eye). Re-rendered, qc PASS. |
 
 ## Rebuild
 

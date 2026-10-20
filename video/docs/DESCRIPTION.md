@@ -19,5 +19,5 @@ Save the number as "Purchase Desk" and send "hi" to get your own list of command
 7:05 Mr Chadda: read the slip, ask, approve (haan / nahi / 5 nahi)
 9:59 The whole journey
 
-Voice: AI (ElevenLabs). Every message shown is the Purchase Desk's real output for a sample week; quantities, rates and
+Voice: AI (ElevenLabs), in Hinglish; on-screen text and subtitles in English. Every message shown is the Purchase Desk's real output for a sample week; quantities, rates and
 vendors in it are examples.
