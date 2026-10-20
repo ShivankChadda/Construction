@@ -7,7 +7,7 @@
     "@fontsource/kalam": "5.2.5",
     "@fontsource/noto-sans-devanagari": "5.2.5",
     "@fontsource/roboto": "5.2.5",
-    "@fontsource/roboto-mono": "^5.2.5",
+    "@fontsource/roboto-mono": "5.2.5",
     "playwright": "1.56.1"
   }
 }

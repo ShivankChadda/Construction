@@ -89,6 +89,10 @@ Without `ANTHROPIC_API_KEY`, the demo and simulator use a simple offline parser 
 
 [`docs/USAGE_GUIDE.md`](docs/USAGE_GUIDE.md) is a one-page guide per person, in English and Hindi. Use it as the script for the training videos.
 
+**Training video (Hinglish, 10:46, with a version for each person):** on Google Drive in
+[Kailash Construction/Purchase Desk tutorial](https://drive.google.com/drive/folders/1QY9kkkLSsY3T4PzdAWtncxBcbwHb4Ytu).
+It is built from this code (every message on screen is the bot's real output) by [`video/`](video/LOG.md).
+
 **Running cost (approximate):** server ₹500–800/month. WhatsApp: a few rupees a day at this volume, since only business-initiated templates are charged (check Meta's current India rate card). Claude: well under ₹1 per requirement or slip read. Sarvam: paise per voice note.
 
 ## Project layout

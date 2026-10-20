@@ -91,6 +91,7 @@ Asked before building (20 Oct 2026):
 
 | # | Date | Cut | Where | QC |
 |---|---|---|---|---|
+| 1 | 10-20 04:30 | full film 10:46; site engineers 4:16, Abbas 5:26, Mr Chadda 4:55; Hindi + English subtitles | Drive `Kailash Construction/Purchase Desk tutorial/` ([folder](https://drive.google.com/drive/folders/1QY9kkkLSsY3T4PzdAWtncxBcbwHb4Ytu), [full film](https://drive.google.com/file/d/17qEWKqO-WovI-hIXPST5JATc000hrljl/view), [engineers](https://drive.google.com/file/d/1jA_KfyDP7ODve2StXZaxWwEFfZaFsOma/view), [Abbas](https://drive.google.com/file/d/1AWW6Kosu8L3IMNKcID3p9AQJgqIjKYd_/view), [Mr Chadda](https://drive.google.com/file/d/1q_FBnsvJYsO6AYredIcQCoJT0bD12SPI/view)), MD5 verified | `qc.py` PASS: h264 1920x1080 30 fps, -14.0 LUFS, -1.7 dBTP, no black, no silence, 5 chapters. WARN: 33 holds of 5-10 s where the phone sits still while the voice explains (intended: time to read); no thumbnail (not a YouTube upload) |
 
 ## Feedback rounds
 
