@@ -3,8 +3,8 @@
 # The phone number IS the identity — only the approver's number can approve.
 
 company:
-  name: "KEC"                                  # TODO: full registered name — printed on every purchase slip
-  address: "Port Blair, Andaman & Nicobar Islands"
+  name: "Kailash Engineering Company"          # printed on every purchase slip
+  address: "22, Deshmesh Market, Port Blair, Andaman and Nicobar Islands"
   gstin: ""
 
 sites:

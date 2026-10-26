@@ -6,7 +6,7 @@ About half a day of work, spread over one or two days because Meta reviews the d
 
 Fill in a copy of `config/roster.example.yaml` (save it as `config/roster.yaml`):
 
-- KEC's full registered name and address (printed on every slip)
+- KEC's GSTIN, if it should be printed on slips (name and address are already filled in)
 - Your father's full name, initials and title (printed as the signature)
 - Name and WhatsApp number of every engineer and supervisor, and their site
 - Abbas's number, your father's number, and your own (as observer)
@@ -21,7 +21,7 @@ Buy a new SIM and put it in a spare phone that can receive SMS. The number must 
 
 1. <https://business.facebook.com>: create a business portfolio in KEC's name.
 2. <https://developers.facebook.com> → **My Apps → Create app**. Pick the **WhatsApp** use case ("Connect with customers through WhatsApp") and link the business portfolio.
-3. **WhatsApp → API Setup → Add phone number**: enter the new SIM's number, verify it by SMS, and set the display name ("KEC Purchase Desk"). Meta reviews the name, usually within a day.
+3. **WhatsApp → API Setup → Add phone number**: enter the new SIM's number, verify it by SMS, and set the display name ("Kailash Purchase Desk"). For the website, use <https://shivankchadda.github.io/kec-site/>. Meta reviews the name, usually within a day.
 4. **WhatsApp Manager → Payment settings**: add a card. Meta charges only for template messages, and this bot sends very few.
 5. **Permanent token**: business.facebook.com → Settings → Users → **System users** → Add (Admin) → **Assign assets** → your app (full control) → **Generate token** with `whatsapp_business_messaging` and `whatsapp_business_management`. Save it as `WA_ACCESS_TOKEN`. Don't use the 24-hour test token.
 6. Copy these into a safe note for step 6:
@@ -83,7 +83,7 @@ curl https://YOUR-DOMAIN/healthz
    - Callback URL: `https://YOUR-DOMAIN/webhook`
    - Verify token: your `WA_VERIFY_TOKEN`
    - Click **Verify and save**, then **subscribe to `messages`**.
-2. App settings → Basic → **Privacy policy URL**: `https://YOUR-DOMAIN/privacy` (the bot serves this page).
+2. App settings → Basic → **Privacy policy URL**: <https://shivankchadda.github.io/kec-site/privacy.html> (the bot also serves a copy at `https://YOUR-DOMAIN/privacy`).
 3. Switch the app from **Development** to **Live** at the top of the app dashboard. In Development mode, real messages may not reach the bot.
 
 ## 8. Google Drive and Sheets (30 minutes)
