@@ -26,7 +26,7 @@ Buy a new SIM and put it in a spare phone that can receive SMS. The number must 
 5. **Settings → Billing and payments**: add a card to that new Messaging account. Check its currency is INR first; it locks once a card is attached. Meta charges only for template messages, and this bot sends very few.
 6. **Permanent token**: Settings → Users → **System users** → Add (Admin) → **Assign assets**: the app (full control) **and** the new WhatsApp account (full control) → **Generate token** with `whatsapp_business_messaging` and `whatsapp_business_management`, expiry **Never**. Save it as `WA_ACCESS_TOKEN`. Don't use the 24-hour test token.
 7. Copy these into a safe note for step 6:
-   - **Phone number ID**: developers.facebook.com → your app → **Use cases → Customize** (the WhatsApp one) → **Step 1. Try it out** (the old "API Setup") → pick the new number in the **From** list → `WA_PHONE_NUMBER_ID`
+   - **Phone number ID** (`WA_PHONE_NUMBER_ID`): Meta's dashboard shows it only for the test number now. You get KEC's from the bot in step 6.
    - **App secret** (App settings → Basic) → `WA_APP_SECRET`
    - Make up a long random string → `WA_VERIFY_TOKEN`
 8. **App settings → Basic**: Privacy policy URL <https://shivankchadda.github.io/kec-site/privacy.html>, then **Publish** (left sidebar of the app dashboard) to take the app out of development. Until it's published, real messages may not reach the bot.
@@ -71,6 +71,7 @@ Then:
 nano config/roster.yaml        # paste the roster from step 1
 cp .env.example .env
 nano .env                      # fill in DOMAIN, PUBLIC_BASE_URL, ADMIN_TOKEN, PRIVACY_CONTACT and the WA_ values from step 3
+docker compose run --rm bot purchasebot wa-numbers   # copy KEC's WA_PHONE_NUMBER_ID=… line into .env
 docker compose run --rm bot purchasebot gen-key   # copy the SIGNING_KEY=… line into .env
 docker compose run --rm bot purchasebot wa-register 482915   # pick your own 6 digits, once
 docker compose up -d --build

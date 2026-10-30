@@ -116,13 +116,35 @@ class CloudWhatsApp:
         self.phone_number_id = phone_number_id
         self.http = httpx.Client(timeout=timeout, headers={"Authorization": f"Bearer {token}"})
 
-    def register(self, pin: str) -> None:
-        """One-time: register the number for Cloud API. The PIN becomes its two-step verification PIN."""
-        r = self.http.post(f"{self.base}/{self.phone_number_id}/register", json={"messaging_product": "whatsapp", "pin": pin})
+    @staticmethod
+    def _result(r: httpx.Response) -> dict:
         data = r.json() if r.content else {}
         if r.status_code >= 400 or "error" in data:
             err = data.get("error", {})
             raise WhatsAppError(int(err.get("code", r.status_code)), err.get("message", r.text))
+        return data
+
+    def register(self, pin: str) -> None:
+        """One-time: register the number for Cloud API. The PIN becomes its two-step verification PIN."""
+        self._result(self.http.post(f"{self.base}/{self.phone_number_id}/register",
+                                    json={"messaging_product": "whatsapp", "pin": pin}))
+
+    def list_numbers(self) -> list[dict]:
+        """Every number the token can reach, with its Phone number ID. Meta's dashboard no longer shows it reliably."""
+        token = self.http.headers["authorization"].removeprefix("Bearer ")
+        scopes = self._result(self.http.get(f"{self.base}/debug_token", params={"input_token": token}))
+        accounts = sorted({t for g in scopes.get("data", {}).get("granular_scopes", [])
+                           if g.get("scope", "").startswith("whatsapp_business") for t in g.get("target_ids", [])})
+        found: dict[str, dict] = {}
+        for account in accounts:
+            try:
+                page = self._result(self.http.get(f"{self.base}/{account}/phone_numbers",
+                                                  params={"fields": "id,display_phone_number,verified_name,status"}))
+            except WhatsAppError:
+                continue  # a target that isn't a messaging account
+            for n in page.get("data", []):
+                found.setdefault(n["id"], {**n, "account_id": account})
+        return list(found.values())
 
     def _post(self, payload: dict) -> str:
         r = self.http.post(f"{self.base}/{self.phone_number_id}/messages", json={"messaging_product": "whatsapp", **payload})

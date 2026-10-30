@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--port", type=int, default=8000)
     sub.add_parser("gen-key", help="print a new SIGNING_KEY")
     sub.add_parser("check", help="check configuration")
+    sub.add_parser("wa-numbers", help="list the WhatsApp numbers the token can use, with their Phone number IDs")
     reg = sub.add_parser("wa-register", help="one-time: register the Purchase Desk number for Cloud API")
     reg.add_argument("pin", help="6 digits; becomes the number's two-step verification PIN, so keep it")
     sub.add_parser("google-auth", help="one-time Google sign-in; prints GOOGLE_OAUTH_REFRESH_TOKEN")
@@ -45,6 +46,8 @@ def main(argv: list[str] | None = None) -> None:
         print("# Keep this secret and backed up. Slips signed with it can only be verified with it.")
     elif args.cmd == "check":
         _check(get_settings())
+    elif args.cmd == "wa-numbers":
+        _wa_numbers(get_settings())
     elif args.cmd == "wa-register":
         _wa_register(get_settings(), args.pin)
     elif args.cmd == "google-auth":
@@ -83,6 +86,25 @@ def _check(settings: Settings) -> None:
         ok &= bool(val)
     print(f"{'✔' if settings.google_auth_mode != 'none' else '–'} Google sync: {settings.google_auth_mode}")
     sys.exit(0 if ok else 1)
+
+
+def _wa_numbers(settings: Settings, client=None) -> None:
+    from .whatsapp import CloudWhatsApp, WhatsAppError
+
+    if not settings.wa_access_token:
+        sys.exit("Set WA_ACCESS_TOKEN in .env first.")
+    wa = client or CloudWhatsApp(settings.wa_phone_number_id, settings.wa_access_token, settings.wa_graph_version)
+    try:
+        numbers = wa.list_numbers()
+    except WhatsAppError as e:
+        sys.exit(f"✘ Meta refused: {e}")
+    if not numbers:
+        sys.exit("No numbers found. Give the system user full control of the WhatsApp and Messaging accounts, "
+                 "then generate a new token.")
+    for n in numbers:
+        mark = "  ← in use" if n["id"] == settings.wa_phone_number_id else ""
+        print(f"{n.get('display_phone_number', '?'):18} {n.get('verified_name', ''):30} {n.get('status', ''):10} "
+              f"WA_PHONE_NUMBER_ID={n['id']}{mark}")
 
 
 def _wa_register(settings: Settings, pin: str, client=None) -> None:

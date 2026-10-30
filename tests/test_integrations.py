@@ -94,6 +94,34 @@ def test_whatsapp_register_request_and_refusal():
     assert e.value.code == 133016
 
 
+def test_whatsapp_lists_numbers_the_token_can_reach(capsys):
+    from purchasebot.cli import _wa_numbers
+
+    def handler(request: httpx.Request):
+        path = request.url.path
+        if path.endswith("/debug_token"):
+            assert request.url.params["input_token"] == "tok"
+            return httpx.Response(200, json={"data": {"granular_scopes": [
+                {"scope": "whatsapp_business_management", "target_ids": ["111", "222"]},
+                {"scope": "whatsapp_business_messaging", "target_ids": ["111"]},
+                {"scope": "business_management", "target_ids": ["999"]}]}})
+        if path.endswith("/111/phone_numbers"):
+            return httpx.Response(200, json={"data": [
+                {"id": "555001", "display_phone_number": "+91 92398 21334", "verified_name": "Kailash Engineering Company",
+                 "status": "CONNECTED"}]})
+        return httpx.Response(400, json={"error": {"code": 100, "message": "Unsupported get request"}})
+
+    wa = CloudWhatsApp("", "tok")
+    wa.http = httpx.Client(transport=httpx.MockTransport(handler), headers={"Authorization": "Bearer tok"})
+    numbers = wa.list_numbers()
+    assert [(n["id"], n["account_id"]) for n in numbers] == [("555001", "111")]
+
+    settings = SimpleNamespace(wa_access_token="tok", wa_phone_number_id="555001")
+    _wa_numbers(settings, client=wa)
+    out = capsys.readouterr().out
+    assert "+91 92398 21334" in out and "WA_PHONE_NUMBER_ID=555001" in out and "in use" in out
+
+
 class FakeSync:
     def __init__(self, fail_times=0):
         self.upserts = []
