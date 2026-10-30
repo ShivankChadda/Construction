@@ -116,6 +116,14 @@ class CloudWhatsApp:
         self.phone_number_id = phone_number_id
         self.http = httpx.Client(timeout=timeout, headers={"Authorization": f"Bearer {token}"})
 
+    def register(self, pin: str) -> None:
+        """One-time: register the number for Cloud API. The PIN becomes its two-step verification PIN."""
+        r = self.http.post(f"{self.base}/{self.phone_number_id}/register", json={"messaging_product": "whatsapp", "pin": pin})
+        data = r.json() if r.content else {}
+        if r.status_code >= 400 or "error" in data:
+            err = data.get("error", {})
+            raise WhatsAppError(int(err.get("code", r.status_code)), err.get("message", r.text))
+
     def _post(self, payload: dict) -> str:
         r = self.http.post(f"{self.base}/{self.phone_number_id}/messages", json={"messaging_product": "whatsapp", **payload})
         data = r.json() if r.content else {}

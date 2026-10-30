@@ -22,6 +22,8 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--port", type=int, default=8000)
     sub.add_parser("gen-key", help="print a new SIGNING_KEY")
     sub.add_parser("check", help="check configuration")
+    reg = sub.add_parser("wa-register", help="one-time: register the Purchase Desk number for Cloud API")
+    reg.add_argument("pin", help="6 digits; becomes the number's two-step verification PIN, so keep it")
     sub.add_parser("google-auth", help="one-time Google sign-in; prints GOOGLE_OAUTH_REFRESH_TOKEN")
     sub.add_parser("google-setup", help="create the Drive folder and Purchase Register sheet")
     sub.add_parser("tick", help="run reminders / digest / backup / sync once")
@@ -43,6 +45,8 @@ def main(argv: list[str] | None = None) -> None:
         print("# Keep this secret and backed up. Slips signed with it can only be verified with it.")
     elif args.cmd == "check":
         _check(get_settings())
+    elif args.cmd == "wa-register":
+        _wa_register(get_settings(), args.pin)
     elif args.cmd == "google-auth":
         _google_auth(get_settings())
     elif args.cmd == "google-setup":
@@ -79,6 +83,21 @@ def _check(settings: Settings) -> None:
         ok &= bool(val)
     print(f"{'✔' if settings.google_auth_mode != 'none' else '–'} Google sync: {settings.google_auth_mode}")
     sys.exit(0 if ok else 1)
+
+
+def _wa_register(settings: Settings, pin: str, client=None) -> None:
+    from .whatsapp import CloudWhatsApp, WhatsAppError
+
+    if not (pin.isdigit() and len(pin) == 6):
+        sys.exit("The PIN must be exactly 6 digits.")
+    if not (settings.wa_phone_number_id and settings.wa_access_token):
+        sys.exit("Set WA_PHONE_NUMBER_ID and WA_ACCESS_TOKEN in .env first.")
+    wa = client or CloudWhatsApp(settings.wa_phone_number_id, settings.wa_access_token, settings.wa_graph_version)
+    try:
+        wa.register(pin)
+    except WhatsAppError as e:
+        sys.exit(f"✘ Meta refused the registration: {e}")
+    print("✔ Registered. Write the PIN down: Meta asks for it if the number is ever moved or re-registered.")
 
 
 def _google_auth(settings: Settings) -> None:

@@ -19,15 +19,19 @@ Buy a new SIM and put it in a spare phone that can receive SMS. The number must 
 
 ## 3. Meta: WhatsApp Business Platform (1 hour, then wait for review)
 
-1. <https://business.facebook.com>: create a business portfolio in KEC's name.
-2. <https://developers.facebook.com> → **My Apps → Create app**. Pick the **WhatsApp** use case ("Connect with customers through WhatsApp") and link the business portfolio.
-3. **WhatsApp → API Setup → Add phone number**: enter the new SIM's number, verify it by SMS, and set the display name ("Kailash Purchase Desk"). For the website, use <https://shivankchadda.github.io/kec-site/>. Meta reviews the name, usually within a day.
-4. **WhatsApp Manager → Payment settings**: add a card. Meta charges only for template messages, and this bot sends very few.
-5. **Permanent token**: business.facebook.com → Settings → Users → **System users** → Add (Admin) → **Assign assets** → your app (full control) → **Generate token** with `whatsapp_business_messaging` and `whatsapp_business_management`. Save it as `WA_ACCESS_TOKEN`. Don't use the 24-hour test token.
-6. Copy these into a safe note for step 6:
-   - **Phone number ID** (WhatsApp → API Setup) → `WA_PHONE_NUMBER_ID`
+1. <https://business.facebook.com>: create a business portfolio in KEC's name. Use your own long-standing Facebook profile with two-factor authentication on. Don't make a separate "KEC" profile: Meta disables those, and the owner's access goes with it. Add a second admin with full control (Settings → Users → People) so one locked profile can't lock out the company.
+2. **Settings → Business info → Edit**: fill in the legal name, full address with PIN code, business phone (one printed on the GST or Udyam certificate, not the new SIM), website <https://shivankchadda.github.io/kec-site/> and email. Without these Meta refuses to add a number ("your business has not met WhatsApp's policy requirements").
+3. <https://developers.facebook.com> → **My Apps → Create app**. Pick the **WhatsApp** use case ("Connect with customers through WhatsApp") and link the business portfolio. Meta also creates a test number and a "Test WhatsApp Business Account"; leave them, they're useful for testing.
+4. **Add the number** in business.facebook.com → **Settings → Accounts → WhatsApp accounts → + Add → Create a new WhatsApp account** (the App Dashboard's Add phone number popup failed for KEC; this route worked). Choose **Add a new number**, enter the SIM's 10 digits, verify by SMS, display name "Kailash Purchase Desk", category Professional Services. Create a **new** Messaging account for it, currency **INR**, time zone Asia/Kolkata. Meta reviews the business and the name within a day or two.
+5. **Settings → Billing and payments**: add a card to that new Messaging account. Check its currency is INR first; it locks once a card is attached. Meta charges only for template messages, and this bot sends very few.
+6. **Permanent token**: Settings → Users → **System users** → Add (Admin) → **Assign assets**: the app (full control) **and** the new WhatsApp account (full control) → **Generate token** with `whatsapp_business_messaging` and `whatsapp_business_management`, expiry **Never**. Save it as `WA_ACCESS_TOKEN`. Don't use the 24-hour test token.
+7. Copy these into a safe note for step 6:
+   - **Phone number ID**: developers.facebook.com → your app → **WhatsApp → API Setup** → pick the new number in the **From** list → `WA_PHONE_NUMBER_ID`
    - **App secret** (App settings → Basic) → `WA_APP_SECRET`
    - Make up a long random string → `WA_VERIFY_TOKEN`
+8. **App settings → Basic**: Privacy policy URL <https://shivankchadda.github.io/kec-site/privacy.html>, then switch the app from **Development** to **Live** at the top of the app dashboard. In Development mode, real messages may not reach the bot.
+
+KEC's own number won't send or receive anything until step 6 registers it with Meta. Until then, build and test with the test number: on the API Setup page, add up to 5 phones under **To** and use the test number's Phone number ID.
 
 ## 4. Meta: the one message template (10 minutes, then wait for review)
 
@@ -68,10 +72,13 @@ nano config/roster.yaml        # paste the roster from step 1
 cp .env.example .env
 nano .env                      # fill in DOMAIN, PUBLIC_BASE_URL, ADMIN_TOKEN, PRIVACY_CONTACT and the WA_ values from step 3
 docker compose run --rm bot purchasebot gen-key   # copy the SIGNING_KEY=… line into .env
+docker compose run --rm bot purchasebot wa-register 482915   # pick your own 6 digits, once
 docker compose up -d --build
 docker compose run --rm bot purchasebot check
 curl https://YOUR-DOMAIN/healthz
 ```
+
+`wa-register` connects KEC's number to the Cloud API; Meta has no button for this. The 6 digits become the number's two-step verification PIN, so write them down. Run it again after Meta approves a display name change. More than 10 attempts in 3 days locks registration for 3 days.
 
 `check` lists every person it found and which keys are still missing. Caddy gets the HTTPS certificate on its own within a minute.
 
@@ -79,12 +86,11 @@ curl https://YOUR-DOMAIN/healthz
 
 ## 7. Connect WhatsApp to the server (10 minutes)
 
-1. developers.facebook.com → your app → **WhatsApp → Configuration → Webhook → Edit**:
-   - Callback URL: `https://YOUR-DOMAIN/webhook`
-   - Verify token: your `WA_VERIFY_TOKEN`
-   - Click **Verify and save**, then **subscribe to `messages`**.
-2. App settings → Basic → **Privacy policy URL**: <https://shivankchadda.github.io/kec-site/privacy.html> (the bot also serves a copy at `https://YOUR-DOMAIN/privacy`).
-3. Switch the app from **Development** to **Live** at the top of the app dashboard. In Development mode, real messages may not reach the bot.
+developers.facebook.com → your app → **WhatsApp → Configuration → Webhook → Edit**:
+
+- Callback URL: `https://YOUR-DOMAIN/webhook`
+- Verify token: your `WA_VERIFY_TOKEN`
+- Click **Verify and save**, then **subscribe to `messages`**.
 
 ## 8. Google Drive and Sheets (30 minutes)
 

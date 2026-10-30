@@ -10,6 +10,7 @@ from purchasebot import store
 from purchasebot.google_sync import enqueue, process_queue
 from purchasebot.llm import ClaudeParser, ParseError
 from purchasebot.speech import SarvamSpeech
+from purchasebot.whatsapp import CloudWhatsApp, WhatsAppError
 
 
 class FakeAnthropicClient:
@@ -73,6 +74,24 @@ def test_sarvam_request():
     assert s.transcribe(b"OggS...", "audio/ogg; codecs=opus") == "पचास बैग सीमेंट"
     assert seen["headers"]["api-subscription-key"] == "key123"
     assert b"saaras:v4" in seen["body"] and b"keyterms" in seen["body"] and b'filename="voice.ogg"' in seen["body"]
+
+
+def test_whatsapp_register_request_and_refusal():
+    seen = []
+
+    def handler(request: httpx.Request):
+        seen.append((request.url.path, json.loads(request.content)))
+        if len(seen) == 1:
+            return httpx.Response(200, json={"success": True})
+        return httpx.Response(400, json={"error": {"code": 133016, "message": "Too many registration attempts"}})
+
+    wa = CloudWhatsApp("1234", "tok")
+    wa.http = httpx.Client(transport=httpx.MockTransport(handler))
+    wa.register("482915")
+    assert seen[0] == ("/v23.0/1234/register", {"messaging_product": "whatsapp", "pin": "482915"})
+    with pytest.raises(WhatsAppError) as e:
+        wa.register("482915")
+    assert e.value.code == 133016
 
 
 class FakeSync:
