@@ -38,9 +38,10 @@ KEC's own number won't send or receive anything until step 6 registers it with M
 WhatsApp Manager → **Message templates → Create**:
 
 - Category: **Utility**. Name: `action_required`. Language: **English**.
-- Body: `Hello, there is an update that needs your attention: {{1}}. Tap the button below to see the details.`
+- Body: `Your KEC purchase order has an update: {{1}}. Tap Show details to view the order and respond.` (Meta's check rejected vaguer wording as marketing.)
 - Sample for {{1}}: `Purchase slip PS-0042 (₹1,55,000) is waiting for your approval`
-- Button: **Quick reply** → `Show details`
+- Button: **Custom** (quick reply) → `Show details`
+- Validity period: turn on and pick **12 hours**. The screen says the default is 10 minutes, so a phone that's offline briefly would miss the reminder.
 
 The bot only uses it when someone hasn't messaged the Purchase Desk for 24 hours (Meta's rule).
 
