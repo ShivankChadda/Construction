@@ -239,10 +239,11 @@ def invoice_rows(b, d):
         tn, tp, tt = tax_cols(l, d['inter'])
         rows.append({
             'Invoice Date': zdate(v['date']), 'Due Date': zdate(v['date']), 'Invoice Number': v['vouchernumber'],
-            'Reference Number': tag(v), 'Invoice Status': 'Sent', 'Customer Name': party, 'Currency Code': 'INR',
+            'Invoice Status': 'Sent', 'Customer Name': party, 'Currency Code': 'INR',
             'GST Treatment': 'business_gst' if d['gstin'] else 'business_none', 'GST Identification Number (GSTIN)': d['gstin'],
             'Place of Supply': b.state(party), 'Is Inclusive Tax': 'false',
-            'Item Name': l['name'][:100], 'Item Desc': '; '.join(x for x in [l['desc'], tag(v)] if x),
+            # Bill imports create purchase-only items; Zoho refuses those on invoices, so sales lines get their own item name.
+            'Item Name': (l['name'][:92] + ' (sales)'), 'Item Desc': '; '.join(x for x in [l['desc'], tag(v)] if x),
             'Account': b.zname(l['ledger']), 'HSN/SAC': hsn(l['hsn']), 'Quantity': f"{l['qty'].normalize():f}", 'Item Price': money(l['rate']),
             'Item Tax': tn, 'Item Tax %': tp, 'Item Tax Type': tt,
             'Adjustment': money(d['adj']) if d['adj'] else '', 'Adjustment Description': 'Round off / GST rounding as in Tally' if d['adj'] else '',
