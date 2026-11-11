@@ -32,6 +32,9 @@ ZTYPE = {  # Tally primary group -> Zoho account type
     'Sales Accounts': 'Income', 'Direct Incomes': 'Income', 'Indirect Incomes': 'Other Income',
     'Purchase Accounts': 'Cost Of Goods Sold', 'Direct Expenses': 'Cost Of Goods Sold', 'Indirect Expenses': 'Expense',
 }
+# Zoho India refuses to import an expense without GST, and these payments (wages, interest, bank charges)
+# carry none, so straight payments go in as manual journals instead.
+USE_EXPENSES = False
 GST_JV_SUFFIX = ' - Tally entries'   # GST ledgers posted outside bills/invoices get their own account (Zoho tax accounts are system-only)
 
 
@@ -319,7 +322,7 @@ def main(vpath, mpath, coapath, out, start, end):
         elif t == 'Sales':
             d, why = bill_or_journal(b, v, 'invoice')
             if d: invoices += invoice_rows(b, d); docs.append(('invoice', d)); rec = 'invoice'
-        elif t == 'Payment':
+        elif t == 'Payment' and USE_EXPENSES:
             e = expense_rows(b, v)
             if e: expenses += e; rec = 'expense'
         if not rec:
