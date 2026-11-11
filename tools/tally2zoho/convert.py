@@ -201,6 +201,12 @@ def bill_or_journal(b, v, kind):
                 total=party_total, adj=adj, tally_round=tally_round, tt=tt), None
 
 
+def hsn(code):
+    """Zoho accepts HSN/SAC of 4, 6 or 8 digits only; anything else (Tally typos like 83025) is left blank."""
+    code = re.sub(r'\s', '', code or '')
+    return code if re.fullmatch(r'[0-9]{4}|[0-9]{6}|[0-9]{8}', code) else ''
+
+
 def tax_cols(l, inter):
     if l['gst'] == 'none': return '', '', ''
     r = int(l['gst'])
@@ -214,12 +220,12 @@ def bill_rows(b, d):
         tn, tp, tt = tax_cols(l, d['inter'])
         rows.append({
             'Bill Date': zdate(v['date']), 'Due Date': zdate(v['date']),
-            'Bill Number': v['reference'] or f"TALLY-PUR-{v['vouchernumber']}", 'Reference Number': tag(v),
+            'Bill Number': v['reference'] or f"TALLY-PUR-{v['vouchernumber']}",
             'Bill Status': 'Open', 'Vendor Name': party, 'Currency Code': 'INR',
             'GST Treatment': 'business_gst' if d['gstin'] else 'business_none', 'GST Identification Number (GSTIN)': d['gstin'],
             'Source of Supply': b.state(party), 'Destination of Supply': 'AN', 'Is Inclusive Tax': 'false',
             'Item Name': l['name'][:100], 'Description': '; '.join(x for x in [l['desc'], tag(v)] if x),
-            'Account': b.zname(l['ledger']), 'HSN/SAC': l['hsn'], 'Quantity': f"{l['qty'].normalize():f}", 'Rate': money(l['rate']),
+            'Account': b.zname(l['ledger']), 'HSN/SAC': hsn(l['hsn']), 'Quantity': f"{l['qty'].normalize():f}", 'Rate': money(l['rate']),
             'Tax Name': tn, 'Tax Percentage': tp, 'Tax Type': tt,
             'Adjustment': money(d['adj']) if d['adj'] else '', 'Adjustment Description': 'Round off / GST rounding as in Tally' if d['adj'] else '',
         })
@@ -237,7 +243,7 @@ def invoice_rows(b, d):
             'GST Treatment': 'business_gst' if d['gstin'] else 'business_none', 'GST Identification Number (GSTIN)': d['gstin'],
             'Place of Supply': b.state(party), 'Is Inclusive Tax': 'false',
             'Item Name': l['name'][:100], 'Item Desc': '; '.join(x for x in [l['desc'], tag(v)] if x),
-            'Account': b.zname(l['ledger']), 'HSN/SAC': l['hsn'], 'Quantity': f"{l['qty'].normalize():f}", 'Item Price': money(l['rate']),
+            'Account': b.zname(l['ledger']), 'HSN/SAC': hsn(l['hsn']), 'Quantity': f"{l['qty'].normalize():f}", 'Item Price': money(l['rate']),
             'Item Tax': tn, 'Item Tax %': tp, 'Item Tax Type': tt,
             'Adjustment': money(d['adj']) if d['adj'] else '', 'Adjustment Description': 'Round off / GST rounding as in Tally' if d['adj'] else '',
             'Notes': tag(v),
