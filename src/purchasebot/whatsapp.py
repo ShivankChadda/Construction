@@ -155,6 +155,13 @@ class CloudWhatsApp:
                 found.setdefault(n["id"], {**n, "account_id": account})
         return list(found.values()), notes
 
+    def subscribe_app(self, account_id: str) -> list[str]:
+        """Subscribe this app to a messaging account's webhooks (Business Suite numbers aren't subscribed
+        automatically). Returns the names of the apps subscribed afterwards."""
+        self._result(self.http.post(f"{self.base}/{account_id}/subscribed_apps"))
+        data = self._result(self.http.get(f"{self.base}/{account_id}/subscribed_apps"))
+        return [(a.get("whatsapp_business_api_data") or a).get("name", "?") for a in data.get("data", [])]
+
     def _post(self, payload: dict) -> str:
         r = self.http.post(f"{self.base}/{self.phone_number_id}/messages", json={"messaging_product": "whatsapp", **payload})
         data = r.json() if r.content else {}

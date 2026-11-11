@@ -74,6 +74,7 @@ nano config/roster.yaml        # paste the roster from step 1
 docker compose run --rm bot purchasebot wa-numbers   # shows KEC's Phone number ID
 bash scripts/configure.sh      # run again and enter that Phone number ID
 docker compose run --rm bot purchasebot wa-register 482915   # pick your own 6 digits, once
+docker compose run --rm bot purchasebot wa-subscribe MESSAGING_ACCOUNT_ID   # asset_id in WhatsApp Manager's address bar, once
 docker compose up -d --build
 docker compose run --rm bot purchasebot check
 curl https://YOUR-DOMAIN/healthz

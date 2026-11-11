@@ -24,6 +24,8 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("check", help="check configuration")
     nums = sub.add_parser("wa-numbers", help="list the WhatsApp numbers the token can use, with their Phone number IDs")
     nums.add_argument("account_ids", nargs="*", help="messaging account IDs to look in (default: read from the token)")
+    subs = sub.add_parser("wa-subscribe", help="one-time: send the messaging account's messages to this app's webhook")
+    subs.add_argument("account_id", help="messaging account ID (asset_id in WhatsApp Manager's address bar)")
     reg = sub.add_parser("wa-register", help="one-time: register the Purchase Desk number for Cloud API")
     reg.add_argument("pin", help="6 digits; becomes the number's two-step verification PIN, so keep it")
     sub.add_parser("google-auth", help="one-time Google sign-in; prints GOOGLE_OAUTH_REFRESH_TOKEN")
@@ -52,6 +54,8 @@ def main(argv: list[str] | None = None) -> None:
         _check(get_settings())
     elif args.cmd == "wa-numbers":
         _wa_numbers(get_settings(), args.account_ids)
+    elif args.cmd == "wa-subscribe":
+        _wa_subscribe(get_settings(), args.account_id)
     elif args.cmd == "wa-register":
         _wa_register(get_settings(), args.pin)
     elif args.cmd == "google-auth":
@@ -111,6 +115,19 @@ def _wa_numbers(settings: Settings, account_ids: list[str] | None = None, client
         mark = "  ← in use" if n["id"] == settings.wa_phone_number_id else ""
         print(f"{n.get('display_phone_number', '?'):18} {n.get('verified_name', ''):30} {n.get('status', ''):10} "
               f"WA_PHONE_NUMBER_ID={n['id']}{mark}")
+
+
+def _wa_subscribe(settings: Settings, account_id: str, client=None) -> None:
+    from .whatsapp import CloudWhatsApp, WhatsAppError
+
+    if not settings.wa_access_token:
+        sys.exit("Set WA_ACCESS_TOKEN in .env first.")
+    wa = client or CloudWhatsApp(settings.wa_phone_number_id, settings.wa_access_token, settings.wa_graph_version)
+    try:
+        apps = wa.subscribe_app(account_id)
+    except WhatsAppError as e:
+        sys.exit(f"✘ Meta refused the subscription: {e}")
+    print(f"✔ Subscribed. Apps receiving this account's messages: {', '.join(apps) or 'none listed'}")
 
 
 def _wa_register(settings: Settings, pin: str, client=None) -> None:

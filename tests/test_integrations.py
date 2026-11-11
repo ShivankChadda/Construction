@@ -144,6 +144,25 @@ def test_wa_numbers_explains_an_empty_result(capsys):
     assert "Token lists messaging accounts: none" in capsys.readouterr().out
 
 
+def test_wa_subscribe_posts_then_lists_apps(capsys):
+    from purchasebot.cli import _wa_subscribe
+
+    seen = []
+
+    def handler(request: httpx.Request):
+        seen.append((request.method, request.url.path))
+        if request.method == "POST":
+            return httpx.Response(200, json={"success": True})
+        return httpx.Response(200, json={"data": [
+            {"whatsapp_business_api_data": {"name": "Kailash Purchase Desk", "id": "1424811252480092"}}]})
+
+    wa = CloudWhatsApp("", "tok")
+    wa.http = httpx.Client(transport=httpx.MockTransport(handler))
+    _wa_subscribe(SimpleNamespace(wa_access_token="tok"), "939883728955320", client=wa)
+    assert seen == [("POST", "/v23.0/939883728955320/subscribed_apps"), ("GET", "/v23.0/939883728955320/subscribed_apps")]
+    assert "Kailash Purchase Desk" in capsys.readouterr().out
+
+
 def test_cli_keeps_request_urls_out_of_the_log():
     import logging
 
