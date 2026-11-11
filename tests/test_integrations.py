@@ -113,13 +113,44 @@ def test_whatsapp_lists_numbers_the_token_can_reach(capsys):
 
     wa = CloudWhatsApp("", "tok")
     wa.http = httpx.Client(transport=httpx.MockTransport(handler), headers={"Authorization": "Bearer tok"})
-    numbers = wa.list_numbers()
+    numbers, notes = wa.list_numbers()
     assert [(n["id"], n["account_id"]) for n in numbers] == [("555001", "111")]
+    assert notes[0] == "Token lists messaging accounts: 111, 222"
+    assert any(n.startswith("222: WhatsApp error 100") for n in notes)
 
     settings = SimpleNamespace(wa_access_token="tok", wa_phone_number_id="555001")
     _wa_numbers(settings, client=wa)
     out = capsys.readouterr().out
     assert "+91 92398 21334" in out and "WA_PHONE_NUMBER_ID=555001" in out and "in use" in out
+
+    # An explicit account ID skips the token lookup entirely.
+    numbers, notes = wa.list_numbers(["111"])
+    assert [n["id"] for n in numbers] == ["555001"] and notes == []
+
+
+def test_wa_numbers_explains_an_empty_result(capsys):
+    from purchasebot.cli import _wa_numbers
+
+    def handler(request: httpx.Request):
+        if request.url.path.endswith("/debug_token"):
+            return httpx.Response(200, json={"data": {"granular_scopes": [{"scope": "whatsapp_business_messaging"}]}})
+        return httpx.Response(404)
+
+    wa = CloudWhatsApp("", "tok")
+    wa.http = httpx.Client(transport=httpx.MockTransport(handler), headers={"Authorization": "Bearer tok"})
+    with pytest.raises(SystemExit) as e:
+        _wa_numbers(SimpleNamespace(wa_access_token="tok", wa_phone_number_id=""), client=wa)
+    assert "asset_id" in str(e.value)
+    assert "Token lists messaging accounts: none" in capsys.readouterr().out
+
+
+def test_cli_keeps_request_urls_out_of_the_log():
+    import logging
+
+    from purchasebot.cli import main
+
+    main(["gen-key"])
+    assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
 
 
 class FakeSync:

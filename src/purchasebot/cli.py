@@ -22,7 +22,8 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--port", type=int, default=8000)
     sub.add_parser("gen-key", help="print a new SIGNING_KEY")
     sub.add_parser("check", help="check configuration")
-    sub.add_parser("wa-numbers", help="list the WhatsApp numbers the token can use, with their Phone number IDs")
+    nums = sub.add_parser("wa-numbers", help="list the WhatsApp numbers the token can use, with their Phone number IDs")
+    nums.add_argument("account_ids", nargs="*", help="messaging account IDs to look in (default: read from the token)")
     reg = sub.add_parser("wa-register", help="one-time: register the Purchase Desk number for Cloud API")
     reg.add_argument("pin", help="6 digits; becomes the number's two-step verification PIN, so keep it")
     sub.add_parser("google-auth", help="one-time Google sign-in; prints GOOGLE_OAUTH_REFRESH_TOKEN")
@@ -34,6 +35,9 @@ def main(argv: list[str] | None = None) -> None:
     d.add_argument("--out", default="data/demo")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # httpx logs every request URL at INFO, and some URLs carry a token or a signed media link.
+    for noisy in ("httpx", "httpcore"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     if args.cmd == "serve":
         import uvicorn
@@ -47,7 +51,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "check":
         _check(get_settings())
     elif args.cmd == "wa-numbers":
-        _wa_numbers(get_settings())
+        _wa_numbers(get_settings(), args.account_ids)
     elif args.cmd == "wa-register":
         _wa_register(get_settings(), args.pin)
     elif args.cmd == "google-auth":
@@ -88,19 +92,21 @@ def _check(settings: Settings) -> None:
     sys.exit(0 if ok else 1)
 
 
-def _wa_numbers(settings: Settings, client=None) -> None:
+def _wa_numbers(settings: Settings, account_ids: list[str] | None = None, client=None) -> None:
     from .whatsapp import CloudWhatsApp, WhatsAppError
 
     if not settings.wa_access_token:
         sys.exit("Set WA_ACCESS_TOKEN in .env first.")
     wa = client or CloudWhatsApp(settings.wa_phone_number_id, settings.wa_access_token, settings.wa_graph_version)
     try:
-        numbers = wa.list_numbers()
+        numbers, notes = wa.list_numbers(account_ids or None)
     except WhatsAppError as e:
         sys.exit(f"✘ Meta refused: {e}")
+    for note in notes:
+        print(f"  {note}")
     if not numbers:
-        sys.exit("No numbers found. Give the system user full control of the WhatsApp and Messaging accounts, "
-                 "then generate a new token.")
+        sys.exit("No numbers found. Pass the messaging account ID shown as asset_id in WhatsApp Manager's address bar, "
+                 "e.g. purchasebot wa-numbers 123456789012345")
     for n in numbers:
         mark = "  ← in use" if n["id"] == settings.wa_phone_number_id else ""
         print(f"{n.get('display_phone_number', '?'):18} {n.get('verified_name', ''):30} {n.get('status', ''):10} "

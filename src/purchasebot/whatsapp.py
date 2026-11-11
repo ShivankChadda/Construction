@@ -129,22 +129,31 @@ class CloudWhatsApp:
         self._result(self.http.post(f"{self.base}/{self.phone_number_id}/register",
                                     json={"messaging_product": "whatsapp", "pin": pin}))
 
-    def list_numbers(self) -> list[dict]:
-        """Every number the token can reach, with its Phone number ID. Meta's dashboard no longer shows it reliably."""
-        token = self.http.headers["authorization"].removeprefix("Bearer ")
-        scopes = self._result(self.http.get(f"{self.base}/debug_token", params={"input_token": token}))
-        accounts = sorted({t for g in scopes.get("data", {}).get("granular_scopes", [])
-                           if g.get("scope", "").startswith("whatsapp_business") for t in g.get("target_ids", [])})
+    def list_numbers(self, accounts: list[str] | None = None) -> tuple[list[dict], list[str]]:
+        """Numbers the token can reach, with their Phone number IDs, plus notes on what was checked.
+
+        Meta's dashboard no longer shows the ID reliably. Without `accounts`, the messaging
+        accounts are read from the token's own scopes."""
+        notes: list[str] = []
+        if not accounts:
+            token = self.http.headers["authorization"].removeprefix("Bearer ")
+            scopes = self._result(self.http.get(f"{self.base}/debug_token", params={"input_token": token}))
+            accounts = sorted({t for g in scopes.get("data", {}).get("granular_scopes", [])
+                               if g.get("scope", "").startswith("whatsapp_business") for t in g.get("target_ids", [])})
+            notes.append(f"Token lists messaging accounts: {', '.join(accounts) or 'none'}")
         found: dict[str, dict] = {}
         for account in accounts:
             try:
                 page = self._result(self.http.get(f"{self.base}/{account}/phone_numbers",
                                                   params={"fields": "id,display_phone_number,verified_name,status"}))
-            except WhatsAppError:
-                continue  # a target that isn't a messaging account
+            except WhatsAppError as e:
+                notes.append(f"{account}: {e}")
+                continue
+            if not page.get("data"):
+                notes.append(f"{account}: no phone numbers")
             for n in page.get("data", []):
                 found.setdefault(n["id"], {**n, "account_id": account})
-        return list(found.values())
+        return list(found.values()), notes
 
     def _post(self, payload: dict) -> str:
         r = self.http.post(f"{self.base}/{self.phone_number_id}/messages", json={"messaging_product": "whatsapp", **payload})
