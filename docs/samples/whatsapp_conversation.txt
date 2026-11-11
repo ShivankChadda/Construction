@@ -1,4 +1,4 @@
-=== 10 Oct: an earlier purchase, so the bot has price history ===
+=== 10 Oct: an earlier purchase and its shop bill, so the bot has a last rate ===
 
 Chandramohan ▶ Cement OPC 53 grade 40 bags
 
@@ -28,21 +28,21 @@ Chandramohan ▶ [taps ✅ Confirm]
       
       Reply *list* to see all open items.
 
-Abbas ▶ N1 Om Traders 395
+Abbas ▶ N1 Om Traders
 
   ⇢ Abbas
       🧾 *PS-0001* — draft
-      _1 line · 1 site · by Abbas_
+      _1 item to buy · 1 site · by Abbas_
       
       📍 *NICOBAR*
-      1. Cement OPC 53 grade — 40 bag × ₹395 = *₹15,800*
-          Om Traders · N1
+      *1.* Cement OPC 53 grade (N1) — 40 bag
+          🏪 Om Traders · no past rate
       
-      *By vendor:* Om Traders ₹15,800
-      *Total: ₹15,800*
+      *Shops:* Om Traders (1)
+      _No past rates for these items yet — prices come from the shop bills._
 
   ⇢ Abbas
-      *PS-0001* · ₹15,800 · 1 line
+      *PS-0001* · 1 item
       
       Send more lines or changes, or send it for approval.
       [1] 📤 Send for approval
@@ -55,57 +55,118 @@ Abbas ▶ [taps 📤 Send for approval]
 
   ⇢ Father's Full Name
       🧾 *PS-0001* — for your approval
-      _1 line · 1 site · by Abbas_
+      _1 item to buy · 1 site · by Abbas_
       
       📍 *NICOBAR*
-      1. Cement OPC 53 grade — 40 bag × ₹395 = *₹15,800*
-          Om Traders · N1
+      *1.* Cement OPC 53 grade (N1) — 40 bag
+          🏪 Om Traders · no past rate
       
-      *By vendor:* Om Traders ₹15,800
-      *Total: ₹15,800*
+      *Shops:* Om Traders (1)
+      _No past rates for these items yet — prices come from the shop bills._
 
   ⇢ Father's Full Name
-      *PS-0001* · ₹15,800 · 1 line
+      *PS-0001* · 1 item
       
       Reply *yes* / *haan* to approve all, *no* to reject.
       To drop a line: *3 nahi*. To approve some: *only 1 2*.
+      Once approved, each shop gets its own signed challan; the bill is checked against it.
       Anything else you type goes to logistics as a question.
       [1] ✅ Approve all
       [2] ❌ Reject
       [3] ❓ Ask logistics
 
   ⇢ Abbas
-      📤 *PS-0001* (₹15,800) sent to Father's Full Name for approval.
+      📤 *PS-0001* (1 item, est. ₹0) sent to Father's Full Name for approval.
 
 Father's Full Name ▶ yes
 
   ⇢ Father's Full Name
-      Done. ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
-      The signed slip has gone to logistics.
+      Done. ✅ *PS-0001 APPROVED* by Father's Full Name
+      Signed challans have gone to logistics, one per shop.
 
-  ⇢ Father's Full Name  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code GDMV-3OD5-MFZJ
+  ⇢ Father's Full Name  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code T4TT-BRGU-LLDH
 
   ⇢ Abbas
-      ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
+      ✅ *PS-0001 APPROVED* by Father's Full Name
       Reply: "yes"
       
-      Verification code: *GDMV-3OD5-MFZJ*
+      Verification code: *T4TT-BRGU-LLDH*
       
-      Buy only what is approved, from the vendors listed. When loaded, send *dispatch PS-0001 <site> <vessel/vehicle>*.
+      *Challans* (show each at its shop):
+      🏪 *PS-0001-1* Om Traders — 1 item
+      
+      Buy only what is on each challan. After buying, send a 📷 *photo of the shop's bill* — I'll check it against the challan. When loaded, send *dispatch PS-0001 <site> <vessel/vehicle>*.
 
-  ⇢ Abbas  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code GDMV-3OD5-MFZJ
+  ⇢ Abbas  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code T4TT-BRGU-LLDH
+
+  ⇢ Abbas  📄 PS-0001-1.pdf  — PS-0001-1 · Om Traders — show this at the shop
 
   ⇢ Shivank
-      ✅ *PS-0001 APPROVED* by Father's Full Name — ₹15,800
+      ✅ *PS-0001 APPROVED* by Father's Full Name
       Reply: "yes"
       
-      Verification code: *GDMV-3OD5-MFZJ*
+      Verification code: *T4TT-BRGU-LLDH*
 
-  ⇢ Shivank  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code GDMV-3OD5-MFZJ
+  ⇢ Shivank  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code T4TT-BRGU-LLDH
+
+  ⇢ Krishna
+      ✅ *PS-0001 APPROVED* by Father's Full Name
+      Reply: "yes"
+      
+      Verification code: *T4TT-BRGU-LLDH*
+
+  ⇢ Krishna  📄 PS-0001_APPROVED.pdf  — PS-0001 — approved · code T4TT-BRGU-LLDH
 
   ⇢ Chandramohan
       🧾 *PS-0001* update for Nicobar:
       ✅ N1 Cement OPC 53 grade 40 bag — approved for purchase
+
+Abbas ▶ Bill 4410
+Cement OPC 53 grade 40 bag 395
+
+  ⇢ Abbas
+      🧾 *Bill BL-0001* — Om Traders (bill no 4410)
+      Against challan *PS-0001-1* (Om Traders, approved by Father's Full Name on 10 Oct 2026)
+      
+      1. Cement OPC 53 grade — 40 bag × ₹395 = *₹15,800* ✅
+      
+      Lines ₹15,800 · *Total ₹15,800*
+      
+      ✔ Matches the approved challan.
+
+  ⇢ Abbas
+      Is this bill read correctly? If not, send a clearer photo.
+      [1] ✅ Record bill
+      [2] 🗑 Discard
+
+Abbas ▶ [taps ✅ Record bill]
+
+  ⇢ Father's Full Name
+      🧾 *Bill BL-0001* — Om Traders (bill no 4410)
+      Against challan *PS-0001-1* (Om Traders, approved by Father's Full Name on 10 Oct 2026)
+      _Recorded by Abbas_
+      
+      1. Cement OPC 53 grade — 40 bag × ₹395 = *₹15,800* ✅
+      
+      Lines ₹15,800 · *Total ₹15,800*
+      
+      ✔ Matches the approved challan.
+
+  ⇢ Krishna
+      🧾 *Bill BL-0001* — Om Traders (bill no 4410)
+      Against challan *PS-0001-1* (Om Traders, approved by Father's Full Name on 10 Oct 2026)
+      _Recorded by Abbas_
+      
+      1. Cement OPC 53 grade — 40 bag × ₹395 = *₹15,800* ✅
+      
+      Lines ₹15,800 · *Total ₹15,800*
+      
+      ✔ Matches the approved challan.
+
+  ⇢ Abbas
+      ✅ *BL-0001* recorded and sent to Father's Full Name, Krishna.
+      
+      When loaded, send *dispatch PS-0001 <site> <vessel/vehicle>*.
 
 
 === 18 Oct: three sites send requirements ===
@@ -229,58 +290,56 @@ Abbas ▶ list
       *D2* Gitti 20mm — 4 brass
       *D3* Welding goggles — 10 nos
       
-      To make a purchase slip, reply like:
-      _D1 Om Traders 420_
-      _N2 N3 Hira Metals 62 per kg_
-      _ship charges Nicobar 4500 lump sum_
+      Say where to buy each item (voice note is fine, prices optional):
+      _D1 Om Traders_
+      _N2 to N5 Hira Metals_
+      _N6 not available_ · _N7 already sent by MV Campbell Bay_ · _N8 not needed_
 
   ⇢ Abbas  📄 requirements-20261018-1200.pdf  — Open requirements by site — for the market
 
-Abbas ▶ N2 Om Traders 420
-N3 Hira Metals 62000
-N4 Om Traders 9500
-K1 Hira Metals 85
-K2 Sagar Hardware 1450
-D1 Om Traders 420
-D2 Om Traders 6500
-D3 Om Traders 180
+(Abbas says which shop for each item - usually a voice note - with no prices)
+
+Abbas ▶ N2 N4 Om Traders
+N3 Hira Metals
+K1 Hira Metals
+K2 Sagar Hardware
+D1 Om Traders
+D2 nahi mila, next week
+D3 already sent MV Swaraj Dweep
 
   ⇢ Abbas
       🧾 *PS-0002* — draft
-      _8 lines · 3 sites · by Abbas_
+      _6 items to buy · 3 sites · by Abbas_
       
       📍 *NICOBAR*
-      1. Cement OPC 53 grade — 50 bag × ₹420 = *₹21,000*
-          Om Traders · N2
-          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
+      *1.* Cement OPC 53 grade (N2) — 50 bag
+          🏪 Om Traders · last ₹395 (Om Traders, 10 Oct 2026)
           ⚠️ Already bought 40 bag for Nicobar on 10 Oct 2026 (PS-0001)
-      2. TMT 12mm — 2 mt × ₹62,000 = *₹1,24,000*
-          Hira Metals · N3
-      3. River sand — 3 truck × ₹9,500 = *₹28,500*
-          Om Traders · N4
+      *2.* River sand (N4) — 3 truck
+          🏪 Om Traders · no past rate
+      *3.* TMT 12mm (N3) — 2 mt
+          🏪 Hira Metals · no past rate
       
       📍 *KAMORTA*
-      4. Binding wire — 25 kg × ₹85 = *₹2,125*
-          Hira Metals · K1
-      5. Shuttering ply — 20 sheet × ₹1,450 = *₹29,000*
-          Sagar Hardware · K2
-          ⚠️ New vendor "Sagar Hardware" — not on the approved vendor list
+      *4.* Binding wire (K1) — 25 kg
+          🏪 Hira Metals · no past rate
+      *5.* Shuttering ply (K2) — 20 sheet
+          🏪 Sagar Hardware · no past rate
+          ⚠️ New shop "Sagar Hardware" — not bought from before
       
       📍 *DIGLIPUR*
-      6. Cement OPC 53 grade — 30 bag × ₹420 = *₹12,600*
-          Om Traders · D1
-          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
-      7. Gitti 20mm — 4 brass × ₹6,500 = *₹26,000*
-          Om Traders · D2
-      8. Welding goggles — 10 nos × ₹180 = *₹1,800*
-          Om Traders · D3
+      *6.* Cement OPC 53 grade (D1) — 30 bag
+          🏪 Om Traders · last ₹395 (Om Traders, 10 Oct 2026)
+      ⏳ D2 Gitti 20mm — not available: nahi mila, next week _(stays pending)_
+      📦 D3 Welding goggles — already sent: already sent MV Swaraj Dweep
       
-      *By vendor:* Om Traders ₹89,900 · Hira Metals ₹1,26,125 · Sagar Hardware ₹29,000
-      *Total: ₹2,45,025*
+      *Shops:* Om Traders (3) · Hira Metals (2) · Sagar Hardware (1)
+      *Est. value: ₹31,600* _(+4 items with no past rate)_
+      _Not buying now: 1 not available, 1 already sent_
 
   ⇢ Abbas
-      *PS-0002* · ₹2,45,025 · 8 lines
-      ⚠️ 4 alerts — see the list above
+      *PS-0002* · 6 items · est. ₹31,600 · 1 not available, 1 already sent
+      ⚠️ 2 alerts — see the list above
       
       Send more lines or changes, or send it for approval.
       [1] 📤 Send for approval
@@ -293,68 +352,76 @@ Abbas ▶ [taps 📤 Send for approval]
 
   ⇢ Father's Full Name
       🧾 *PS-0002* — for your approval
-      _8 lines · 3 sites · by Abbas_
+      _6 items to buy · 3 sites · by Abbas_
       
       📍 *NICOBAR*
-      1. Cement OPC 53 grade — 50 bag × ₹420 = *₹21,000*
-          Om Traders · N2
-          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
+      *1.* Cement OPC 53 grade (N2) — 50 bag
+          🏪 Om Traders · last ₹395 (Om Traders, 10 Oct 2026)
           ⚠️ Already bought 40 bag for Nicobar on 10 Oct 2026 (PS-0001)
-      2. TMT 12mm — 2 mt × ₹62,000 = *₹1,24,000*
-          Hira Metals · N3
-      3. River sand — 3 truck × ₹9,500 = *₹28,500*
-          Om Traders · N4
+      *2.* River sand (N4) — 3 truck
+          🏪 Om Traders · no past rate
+      *3.* TMT 12mm (N3) — 2 mt
+          🏪 Hira Metals · no past rate
       
       📍 *KAMORTA*
-      4. Binding wire — 25 kg × ₹85 = *₹2,125*
-          Hira Metals · K1
-      5. Shuttering ply — 20 sheet × ₹1,450 = *₹29,000*
-          Sagar Hardware · K2
-          ⚠️ New vendor "Sagar Hardware" — not on the approved vendor list
+      *4.* Binding wire (K1) — 25 kg
+          🏪 Hira Metals · no past rate
+      *5.* Shuttering ply (K2) — 20 sheet
+          🏪 Sagar Hardware · no past rate
+          ⚠️ New shop "Sagar Hardware" — not bought from before
       
       📍 *DIGLIPUR*
-      6. Cement OPC 53 grade — 30 bag × ₹420 = *₹12,600*
-          Om Traders · D1
-          ⚠️ Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct 2026)
-      7. Gitti 20mm — 4 brass × ₹6,500 = *₹26,000*
-          Om Traders · D2
-      8. Welding goggles — 10 nos × ₹180 = *₹1,800*
-          Om Traders · D3
+      *6.* Cement OPC 53 grade (D1) — 30 bag
+          🏪 Om Traders · last ₹395 (Om Traders, 10 Oct 2026)
+      ⏳ D2 Gitti 20mm — not available: nahi mila, next week _(stays pending)_
+      📦 D3 Welding goggles — already sent: already sent MV Swaraj Dweep
       
-      *By vendor:* Om Traders ₹89,900 · Hira Metals ₹1,26,125 · Sagar Hardware ₹29,000
-      *Total: ₹2,45,025*
+      *Shops:* Om Traders (3) · Hira Metals (2) · Sagar Hardware (1)
+      *Est. value: ₹31,600* _(+4 items with no past rate)_
+      _Not buying now: 1 not available, 1 already sent_
 
   ⇢ Father's Full Name
-      *PS-0002* · ₹2,45,025 · 8 lines
-      ⚠️ 4 alerts — see the list above
+      *PS-0002* · 6 items · est. ₹31,600 · 1 not available, 1 already sent
+      ⚠️ 2 alerts — see the list above
       
       Reply *yes* / *haan* to approve all, *no* to reject.
       To drop a line: *3 nahi*. To approve some: *only 1 2*.
+      Once approved, each shop gets its own signed challan; the bill is checked against it.
       Anything else you type goes to logistics as a question.
       [1] ✅ Approve all
       [2] ❌ Reject
       [3] ❓ Ask logistics
 
-  ⇢ Abbas
-      📤 *PS-0002* (₹2,45,025) sent to Father's Full Name for approval.
+  ⇢ Siddhu
+      📝 *Abbas* on your requirements (Diglipur):
+      ⏳ D2 Gitti 20mm — not available: nahi mila, next week _(stays pending)_
+      📦 D3 Welding goggles — already sent: already sent MV Swaraj Dweep
 
-Father's Full Name ▶ cement 420 kyun? last time 395 tha
+  ⇢ Ami
+      📝 *Abbas* on your requirements (Diglipur):
+      ⏳ D2 Gitti 20mm — not available: nahi mila, next week _(stays pending)_
+      📦 D3 Welding goggles — already sent: already sent MV Swaraj Dweep
+
+  ⇢ Abbas
+      📤 *PS-0002* (6 items, est. ₹31,600) sent to Father's Full Name for approval.
+
+Father's Full Name ▶ Sagar Hardware kaun hai? pehle kabhi nahi liya
 
   ⇢ Abbas
       ❓ *Father's Full Name asks about PS-0002:*
-      cement 420 kyun? last time 395 tha
+      Sagar Hardware kaun hai? pehle kabhi nahi liya
       
       _Reply to this message to answer. To change the slip, send *edit PS-0002*._
 
   ⇢ Father's Full Name
-      📨 Sent to Abbas: "cement 420 kyun? last time 395 tha"
+      📨 Sent to Abbas: "Sagar Hardware kaun hai? pehle kabhi nahi liya"
       PS-0002 is still waiting for your decision.
 
-Abbas ▶ Ship freight badh gaya, Om Traders ka naya rate hai
+Abbas ▶ Om aur Hira ke paas shuttering ply nahi tha
 
   ⇢ Father's Full Name
       💬 *Abbas replied about PS-0002:*
-      Ship freight badh gaya, Om Traders ka naya rate hai
+      Om aur Hira ke paas shuttering ply nahi tha
       
       _Reply to this message to answer, or say yes / no to decide._
 
@@ -365,8 +432,8 @@ Father's Full Name ▶ 5 nahi
 
   ⇢ Father's Full Name
       *PS-0002* — please confirm:
-      ✅ Approve line 1, 2, 3, 4, 6, 7, 8 (₹2,16,025)
-      ❌ Reject line 5 (₹29,000)
+      ✅ Approve line 1, 2, 3, 4, 6 (est. ₹31,600)
+      ❌ Reject line 5
       
       [1] ✅ Confirm
       [2] ↩️ Cancel
@@ -374,40 +441,59 @@ Father's Full Name ▶ 5 nahi
 Father's Full Name ▶ [taps ✅ Confirm]
 
   ⇢ Father's Full Name
-      Done. 🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,16,025 of ₹2,45,025
-      The signed slip has gone to logistics.
+      Done. 🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — est. ₹31,600
+      Signed challans have gone to logistics, one per shop.
 
-  ⇢ Father's Full Name  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code EXJ5-C7WX-4MJZ
+  ⇢ Father's Full Name  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code BYSN-X3JE-LZVT
 
   ⇢ Abbas
-      🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,16,025 of ₹2,45,025
+      🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — est. ₹31,600
       Reply: "5 nahi"
       
       Not approved — do *not* buy:
       ❌ 5. Shuttering ply (Sagar Hardware)
       
-      Verification code: *EXJ5-C7WX-4MJZ*
+      Verification code: *BYSN-X3JE-LZVT*
       
-      Buy only what is approved, from the vendors listed. When loaded, send *dispatch PS-0002 <site> <vessel/vehicle>*.
+      *Challans* (show each at its shop):
+      🏪 *PS-0002-1* Om Traders — 3 items
+      🏪 *PS-0002-2* Hira Metals — 2 items
+      
+      Buy only what is on each challan. After buying, send a 📷 *photo of the shop's bill* — I'll check it against the challan. When loaded, send *dispatch PS-0002 <site> <vessel/vehicle>*.
 
-  ⇢ Abbas  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code EXJ5-C7WX-4MJZ
+  ⇢ Abbas  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code BYSN-X3JE-LZVT
+
+  ⇢ Abbas  📄 PS-0002-1.pdf  — PS-0002-1 · Om Traders — show this at the shop
+
+  ⇢ Abbas  📄 PS-0002-2.pdf  — PS-0002-2 · Hira Metals — show this at the shop
 
   ⇢ Shivank
-      🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — ₹2,16,025 of ₹2,45,025
+      🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — est. ₹31,600
       Reply: "5 nahi"
       
       Not approved — do *not* buy:
       ❌ 5. Shuttering ply (Sagar Hardware)
       
-      Verification code: *EXJ5-C7WX-4MJZ*
+      Verification code: *BYSN-X3JE-LZVT*
 
-  ⇢ Shivank  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code EXJ5-C7WX-4MJZ
+  ⇢ Shivank  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code BYSN-X3JE-LZVT
+
+  ⇢ Krishna
+      🟡 *PS-0002 PARTLY APPROVED* by Father's Full Name — est. ₹31,600
+      Reply: "5 nahi"
+      
+      Not approved — do *not* buy:
+      ❌ 5. Shuttering ply (Sagar Hardware)
+      
+      Verification code: *BYSN-X3JE-LZVT*
+
+  ⇢ Krishna  📄 PS-0002_PARTIAL.pdf  — PS-0002 — partial · code BYSN-X3JE-LZVT
 
   ⇢ Chandramohan
       🧾 *PS-0002* update for Nicobar:
       ✅ N2 Cement OPC 53 grade 50 bag — approved for purchase
-      ✅ N3 TMT 12mm 2 mt — approved for purchase
       ✅ N4 River sand 3 truck — approved for purchase
+      ✅ N3 TMT 12mm 2 mt — approved for purchase
 
   ⇢ Tambi Uncle
       🧾 *PS-0002* update for Kamorta:
@@ -417,14 +503,67 @@ Father's Full Name ▶ [taps ✅ Confirm]
   ⇢ Siddhu
       🧾 *PS-0002* update for Diglipur:
       ✅ D1 Cement OPC 53 grade 30 bag — approved for purchase
-      ✅ D2 Gitti 20mm 4 brass — approved for purchase
-      ✅ D3 Welding goggles 10 nos — approved for purchase
 
   ⇢ Ami
       🧾 *PS-0002* update for Diglipur:
       ✅ D1 Cement OPC 53 grade 30 bag — approved for purchase
-      ✅ D2 Gitti 20mm 4 brass — approved for purchase
-      ✅ D3 Welding goggles 10 nos — approved for purchase
+
+(Abbas buys at Om Traders against its challan and sends the bill)
+
+Abbas ▶ Bill 5120
+Cement OPC 53 grade 50 bag 420
+River sand 3 truck 9500
+Cement OPC 53 grade 30 bag 420
+
+  ⇢ Abbas
+      🧾 *Bill BL-0002* — Om Traders (bill no 5120)
+      Against challan *PS-0002-1* (Om Traders, approved by Father's Full Name on 18 Oct 2026)
+      
+      1. Cement OPC 53 grade — 50 bag × ₹420 = *₹21,000*
+          ⚠️ Rate ₹420 is 6% above last ₹395 (Om Traders, 10 Oct 2026)
+      2. River sand — 3 truck × ₹9,500 = *₹28,500* ✅
+      3. Cement OPC 53 grade — 30 bag × ₹420 = *₹12,600*
+          ⚠️ Rate ₹420 is 6% above last ₹395 (Om Traders, 10 Oct 2026)
+      
+      Lines ₹62,100 · *Total ₹62,100*
+
+  ⇢ Abbas
+      Is this bill read correctly? If not, send a clearer photo.
+      [1] ✅ Record bill
+      [2] 🗑 Discard
+
+Abbas ▶ [taps ✅ Record bill]
+
+  ⇢ Father's Full Name
+      🧾 *Bill BL-0002* — Om Traders (bill no 5120)
+      Against challan *PS-0002-1* (Om Traders, approved by Father's Full Name on 18 Oct 2026)
+      _Recorded by Abbas_
+      
+      1. Cement OPC 53 grade — 50 bag × ₹420 = *₹21,000*
+          ⚠️ Rate ₹420 is 6% above last ₹395 (Om Traders, 10 Oct 2026)
+      2. River sand — 3 truck × ₹9,500 = *₹28,500* ✅
+      3. Cement OPC 53 grade — 30 bag × ₹420 = *₹12,600*
+          ⚠️ Rate ₹420 is 6% above last ₹395 (Om Traders, 10 Oct 2026)
+      
+      Lines ₹62,100 · *Total ₹62,100*
+
+  ⇢ Krishna
+      🧾 *Bill BL-0002* — Om Traders (bill no 5120)
+      Against challan *PS-0002-1* (Om Traders, approved by Father's Full Name on 18 Oct 2026)
+      _Recorded by Abbas_
+      
+      1. Cement OPC 53 grade — 50 bag × ₹420 = *₹21,000*
+          ⚠️ Rate ₹420 is 6% above last ₹395 (Om Traders, 10 Oct 2026)
+      2. River sand — 3 truck × ₹9,500 = *₹28,500* ✅
+      3. Cement OPC 53 grade — 30 bag × ₹420 = *₹12,600*
+          ⚠️ Rate ₹420 is 6% above last ₹395 (Om Traders, 10 Oct 2026)
+      
+      Lines ₹62,100 · *Total ₹62,100*
+
+  ⇢ Abbas
+      ✅ *BL-0002* recorded and sent to Father's Full Name, Krishna.
+      
+      When loaded, send *dispatch PS-0002 <site> <vessel/vehicle>*.
 
 Abbas ▶ dispatch PS-0002 Nicobar MV Campbell Bay
 
@@ -433,8 +572,8 @@ Abbas ▶ dispatch PS-0002 Nicobar MV Campbell Bay
       _via MV Campbell Bay_
       
       1. Cement OPC 53 grade — 50 bag (PS-0002)
-      2. TMT 12mm — 2 mt (PS-0002)
-      3. River sand — 3 truck (PS-0002)
+      2. River sand — 3 truck (PS-0002)
+      3. TMT 12mm — 2 mt (PS-0002)
       
       When it reaches site, tap *All received*, or *Short/damaged* to tell what actually came.
 
@@ -466,15 +605,13 @@ Abbas ▶ dispatch PS-0002 Kamorta MV Swaraj Dweep
 
 (Abbas forwards his usual dispatch post from the group)
 
-Abbas ▶ ↪ forwarded from group: Diglipur Sector - Cement, gitti and welding goggles loaded in Anand Bus AN01F3868 departed today at 10.00 AM. Bus will be parked near BD BAR. Transportation not paid.
+Abbas ▶ ↪ forwarded from group: Diglipur Sector - Cement loaded in Anand Bus AN01F3868 departed today at 10.00 AM. Bus will be parked near BD BAR. Transportation not paid.
 
   ⇢ Siddhu
       🚚 *DSP-0003 → Diglipur*
       _via Anand Bus AN01F3868 · Bus will be parked near BD BAR. Transportation not paid_
       
       1. Cement OPC 53 grade — 30 bag (PS-0002)
-      2. Gitti 20mm — 4 brass (PS-0002)
-      3. Welding goggles — 10 nos (PS-0002)
       
       When it reaches site, tap *All received*, or *Short/damaged* to tell what actually came.
 
@@ -488,8 +625,6 @@ Abbas ▶ ↪ forwarded from group: Diglipur Sector - Cement, gitti and welding 
       _via Anand Bus AN01F3868 · Bus will be parked near BD BAR. Transportation not paid_
       
       1. Cement OPC 53 grade — 30 bag (PS-0002)
-      2. Gitti 20mm — 4 brass (PS-0002)
-      3. Welding goggles — 10 nos (PS-0002)
       
       When it reaches site, tap *All received*, or *Short/damaged* to tell what actually came.
 
@@ -499,8 +634,8 @@ Abbas ▶ ↪ forwarded from group: Diglipur Sector - Cement, gitti and welding 
       [2] ⚠️ Short/damaged
 
   ⇢ Abbas
-      🚚 Logged *DSP-0003* → Diglipur: 3 item(s) via Anand Bus AN01F3868.
-      3 matched to approved slips (PS-0002).
+      🚚 Logged *DSP-0003* → Diglipur: 1 item(s) via Anand Bus AN01F3868.
+      1 matched to approved slips (PS-0002).
       Siddhu, Ami will confirm what arrives.
 
 Chandramohan ▶ [taps ⚠️ Short/damaged]
@@ -508,8 +643,8 @@ Chandramohan ▶ [taps ⚠️ Short/damaged]
   ⇢ Chandramohan
       Tell me what actually came for DSP-0001:
       1. Cement OPC 53 grade — 50 bag
-      2. TMT 12mm — 2 mt
-      3. River sand — 3 truck
+      2. River sand — 3 truck
+      3. TMT 12mm — 2 mt
       
       Reply like *1-45, 3-0* (line – qty received), or in words: "cement 45 bag aaya, sand nahi aaya".
       _Lines you don't mention are counted as fully received._
@@ -517,18 +652,10 @@ Chandramohan ▶ [taps ⚠️ Short/damaged]
 Chandramohan ▶ 3-2
 
   ⇢ Abbas
-      ⚠️ *Short delivery at Nicobar* — DSP-0001 (sent via MV Campbell Bay)
-      • River sand: got 2 of 3 truck (PS-0002)
-      Reported by Chandramohan.
-
-  ⇢ Father's Full Name
-      ⚠️ *Short delivery at Nicobar* — DSP-0001 (sent via MV Campbell Bay)
-      • River sand: got 2 of 3 truck (PS-0002)
-      Reported by Chandramohan.
+      ✅ Nicobar confirmed delivery of DSP-0001 (Chandramohan).
 
   ⇢ Chandramohan
-      Recorded. Shortage reported to logistics and the approver.
-      • River sand: got 2 of 3 truck (PS-0002)
+      ✅ Recorded. Stock for Nicobar updated.
 
 Tambi Uncle ▶ [taps ✅ All received]
 
@@ -557,17 +684,18 @@ Chandramohan ▶ stock
   ⇢ Chandramohan
       📦 *Stock – Nicobar*
       Cement OPC 53 grade — 40 bag
-      River sand — 2 truck
+      River sand — 3 truck
       TMT 12mm — 2 mt
 
 Father's Full Name ▶ report
 
   ⇢ Father's Full Name
       📊 *October 2026 so far*
-      Approved: *₹2.32 L* across 2 slip(s)
-      By site: Nicobar ₹1.89 L · Diglipur ₹40,400 · Kamorta ₹2,125
-      Top vendors: Hira Metals ₹1.26 L · Om Traders ₹1.06 L
-      Rejected: ₹29,000 (1 line)
+      Approved: *₹77,900* across 2 list(s) _(billed where bills are in, else estimated)_
+      By site: Nicobar ₹65,300 · Diglipur ₹12,600 · Kamorta ₹0
+      Top vendors: Om Traders ₹77,900 · Hira Metals ₹0
+      On credit (shop bills recorded): Om Traders ₹0 (2)
+      Challans not billed yet: 1 (PS-0002-2)
+      Rejected: ₹0 (1 line)
       Waiting for approval: 0
       Approved but not yet delivered: 1 line(s)
-      ⚠️ Short deliveries this month: 1

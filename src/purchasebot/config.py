@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     google_drive_root_folder_id: str = ""
     google_sheet_id: str = ""
 
+    # --- Zoho Books (past purchase rates; read-only) ---
+    zoho_client_id: str = ""
+    zoho_client_secret: str = ""
+    zoho_refresh_token: str = ""
+    zoho_org_id: str = ""
+    zoho_dc: str = "in"  # data centre: in (India), com, eu, com.au, ...
+    zoho_sync_days: int = 365  # how far back to read bills
+    zoho_max_calls: int = 600  # per sync run; Zoho's daily limit is 1,000-10,000 by plan
+    zoho_sync_hour: int = 3  # daily refresh at this hour; -1 disables
+
     # --- App ---
     database_path: str = "data/purchasebot.db"
     roster_path: str = "config/roster.yaml"

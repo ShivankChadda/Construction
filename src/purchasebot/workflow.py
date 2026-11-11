@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
+import httpx
+
 from . import approval, clock, render, store
 from .approval import Decision
 from .config import Settings
@@ -71,6 +73,7 @@ class Bot:
         self.gsync = gsync
         self.lock = threading.RLock()
         self._sync_lock = threading.Lock()
+        self._zoho_lock = threading.Lock()
         self._timers: dict[str, threading.Timer] = {}
         clock.set_timezone(settings.timezone)
 
@@ -228,6 +231,16 @@ class Bot:
 
     def _on_quote(self, p: Person, msg: Incoming, ob) -> bool:
         entity = ob["entity"] or ""
+        if entity.startswith("bill:") and p.role in ("approver", "accounts"):
+            # A reply on a shop bill is a comment for logistics, never a decision on a pending list.
+            bill = store.load_bill(self.db, int(entity.split(":")[1]))
+            text = self._content(msg).text if msg.kind == "audio" else msg.text
+            for l in self.roster.by_role("logistics"):
+                self._notify(l, f"{p.name} commented on bill {bill.bill_ref}", lambda l=l: self._text(
+                    l, f"💬 *{p.name} on bill {bill.bill_ref}* ({bill.vendor}):\n{text}"))
+            self.db.audit(p.phone, "bill_comment", bill.bill_ref, text=text)
+            self._text(p, f"Sent to {', '.join(l.name for l in self.roster.by_role('logistics')) or 'logistics'}.")
+            return True
         if p.role == "approver" and entity.startswith("slip:"):
             _, sid, ver = entity.split(":")
             content = self._content(msg) if msg.kind == "audio" else None
@@ -1734,6 +1747,32 @@ class Bot:
         if self.gsync is not None:
             with self._sync_lock:
                 process_queue(self.db, self.gsync, self.roster)
+        self._zoho_daily(clock.now())
+
+    def _zoho_daily(self, now) -> None:
+        """Refresh past rates from Zoho Books once a day, in the background (the first run can take minutes)."""
+        from .zoho import from_settings
+
+        today = now.date().isoformat()
+        if not (0 <= self.s.zoho_sync_hour <= now.hour) or self.db.kv_get("last_zoho_sync") == today:
+            return
+        zb = from_settings(self.s)
+        if zb is None or not self._zoho_lock.acquire(blocking=False):
+            return
+        self.db.kv_set("last_zoho_sync", today)
+
+        def run():
+            from .zoho import ZohoError, sync_rates
+
+            try:
+                stats = sync_rates(self.db, zb, self.s.zoho_sync_days, self.s.zoho_max_calls)
+                log.info("Zoho Books rates synced: %s", stats)  # bills left over are fetched in tomorrow's run
+            except (ZohoError, httpx.HTTPError) as e:
+                log.warning("Zoho Books sync failed: %s", e)
+            finally:
+                self._zoho_lock.release()
+
+        threading.Thread(target=run, daemon=True).start()
 
     def _approval_reminders(self, now) -> None:
         due = now - timedelta(hours=self.s.approval_reminder_hours)

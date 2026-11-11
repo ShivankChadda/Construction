@@ -313,3 +313,16 @@ def test_old_database_gets_new_columns(tmp_path):
     cols = {r[1] for r in db.conn.execute("PRAGMA table_info(slip_lines)")}
     assert {"action", "remark", "last_rate_name", "challan_id"} <= cols
     assert "note" in {r[1] for r in db.conn.execute("PRAGMA table_info(req_items)")}
+
+
+def test_reply_on_a_bill_is_a_comment_not_an_approval(make_chat):
+    chat, reader, (ch,) = _approved(make_chat, reqs="cement 50 bags", plan="N1 Om Traders")
+    reader.bill = BillParse("Om Traders", "1", "", [ParsedBillLine("Cement", "cement", 50, "bag", 410, 20500, ch.lines[0].id)])
+    chat.photo("abbas", caption="bill")
+    chat.tap("abbas", "✅ Record bill")
+    chat.requisition("chandra", "sand 3 truck")
+    _plan(chat, "N2 Om Traders")  # a second list is now waiting for approval
+    bill_msg = next(s for s in chat.wa.to(PHONES["boss"]) if "Bill BL-0001" in s.body)
+    chat.say("boss", "ok", quote=bill_msg)
+    assert store.slip_by_number(chat.db, 2).status == "PENDING"
+    assert "Rajesh Chadda on bill BL-0001* (Om Traders):\nok" in chat.last("abbas").body

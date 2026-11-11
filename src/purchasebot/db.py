@@ -173,6 +173,13 @@ CREATE TABLE IF NOT EXISTS rate_history (
 );
 CREATE INDEX IF NOT EXISTS ix_rate_history_key ON rate_history(item_key);
 
+-- Zoho Books bills already copied into rate_history, so unchanged bills aren't fetched again.
+CREATE TABLE IF NOT EXISTS zoho_bills (
+  bill_id TEXT PRIMARY KEY,
+  last_modified TEXT NOT NULL DEFAULT '',
+  synced_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS dispatches (
   id INTEGER PRIMARY KEY,
   dispatch_no TEXT UNIQUE,

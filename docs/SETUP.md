@@ -10,6 +10,7 @@ Fill in a copy of `config/roster.example.yaml` (save it as `config/roster.yaml`)
 - Your father's full name, initials and title (printed as the signature)
 - Name and WhatsApp number of every engineer and supervisor, and their site
 - Abbas's number, your father's number, and your own (as observer)
+- Head-office accounts staff with `role: accounts`: they get approved lists and every shop bill, checked against the challan
 - Vendors you already buy from, with the spellings people use ("Om", "Ome")
 - How people write each site in the group. If "N/C" means Nancowry/Kamorta, add `n/c` to Kamorta's aliases
 
@@ -124,7 +125,16 @@ Why not a service account? Google service accounts have no Drive storage of thei
 - **Claude** reads messy posts and photos: <https://console.anthropic.com> → add credits → **API keys** → `ANTHROPIC_API_KEY`.
 - **Sarvam** transcribes Hindi voice notes: <https://dashboard.sarvam.ai> → API key → `SARVAM_API_KEY`.
 
-Add both to `.env` on the server and run `docker compose up -d`. Without Claude, the bot falls back to a basic reader that understands only lines like "cement 50 bag". Without Sarvam, voice notes get a "please type it" reply.
+Add both to `.env` on the server and run `docker compose up -d`. Without Claude, the bot falls back to a basic reader that understands only lines like "cement 50 bag". Without Sarvam, voice notes get a "please type it" reply. Reading shop bill photos also needs Claude.
+
+### Zoho Books: last rates on the approver's list (15 minutes, optional but recommended)
+
+The approver's list shows the last rate paid for each item. Those rates come from shop bills the bot records, and from Zoho Books once it is connected (read-only).
+
+1. Sign in at <https://api-console.zoho.in> with the Zoho login that has the **construction company's** Books organisation → **Add Client → Self Client → Create**. Note the **Client ID** and **Client Secret**.
+2. **Generate Code** tab: scope `ZohoBooks.bills.READ,ZohoBooks.settings.READ`, time duration **10 minutes**, description "purchase bot" → **Create**. Copy the code.
+3. Within those 10 minutes, on the server: `bash scripts/configure.sh` → Enter through the questions → answer **y** to "Connect Zoho Books" → paste the Client ID, Secret and code. It picks the organisation (asks if there are several) and stores the access without showing it.
+4. `docker compose up -d --force-recreate bot && docker compose run --rm bot purchasebot zoho-sync` — copies a year of bill rates. Zoho allows 1,000+ API calls a day, so a big history finishes over a couple of nights; after that it refreshes daily at 3 am.
 
 ## 10. Test run with three phones (30 minutes)
 

@@ -58,10 +58,16 @@ people:
     phone: "9000000005"
     role: approver
 
-  # Observers — get copies of approved slips and the daily summary; cannot approve
+  # Observers — get copies of approved lists and the daily summary; cannot approve
   - name: Shivank
     phone: "9000000006"
     role: observer
+
+  # Accounts — like observers, and also get every shop bill Abbas records, checked against the challan
+  - name: Krishna
+    title: Head Accountant
+    phone: "9000000008"
+    role: accounts
 
 vendors:
   # Known suppliers. A slip line with a vendor NOT on this list is flagged "new vendor".

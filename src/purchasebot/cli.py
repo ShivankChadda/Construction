@@ -22,6 +22,8 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--port", type=int, default=8000)
     sub.add_parser("gen-key", help="print a new SIGNING_KEY")
     sub.add_parser("check", help="check configuration")
+    zs = sub.add_parser("zoho-sync", help="copy past purchase rates from Zoho Books now")
+    zs.add_argument("--days", type=int, default=None, help="how far back to read bills (default ZOHO_SYNC_DAYS)")
     nums = sub.add_parser("wa-numbers", help="list the WhatsApp numbers the token can use, with their Phone number IDs")
     nums.add_argument("account_ids", nargs="*", help="messaging account IDs to look in (default: read from the token)")
     subs = sub.add_parser("wa-subscribe", help="one-time: send the messaging account's messages to this app's webhook")
@@ -52,6 +54,8 @@ def main(argv: list[str] | None = None) -> None:
         print("# Keep this secret and backed up. Slips signed with it can only be verified with it.")
     elif args.cmd == "check":
         _check(get_settings())
+    elif args.cmd == "zoho-sync":
+        _zoho_sync(get_settings(), args.days)
     elif args.cmd == "wa-numbers":
         _wa_numbers(get_settings(), args.account_ids)
     elif args.cmd == "wa-subscribe":
@@ -93,7 +97,29 @@ def _check(settings: Settings) -> None:
         print(f"{'✔' if val else '✘'} {label}")
         ok &= bool(val)
     print(f"{'✔' if settings.google_auth_mode != 'none' else '–'} Google sync: {settings.google_auth_mode}")
+    zoho = settings.zoho_refresh_token and settings.zoho_org_id
+    print(f"{'✔' if zoho else '–'} Zoho Books rates: {'on (' + settings.zoho_dc + ')' if zoho else 'not set up'}")
     sys.exit(0 if ok else 1)
+
+
+def _zoho_sync(settings: Settings, days: int | None, client=None) -> None:
+    from .db import DB
+    from .zoho import ZohoError, from_settings, sync_rates
+
+    zb = client or from_settings(settings)
+    if zb is None:
+        sys.exit("Zoho Books isn't set up. Run: bash scripts/configure.sh")
+    db = DB(settings.database_path)
+    print("Reading rates from Zoho Books (the first run can take several minutes)...")
+    try:
+        stats = sync_rates(db, zb, days or settings.zoho_sync_days, settings.zoho_max_calls)
+    except ZohoError as e:
+        sys.exit(f"✘ {e}")
+    total = db.one("SELECT COUNT(*) AS n FROM rate_history")["n"]
+    print(f"✔ {stats['items']} item rates, {stats['bills']} bills ({stats['lines']} lines) read; "
+          f"{total} past rates on file.")
+    if stats["remaining"]:
+        print(f"  {stats['remaining']} older bills are left for the next run (Zoho's daily API limit).")
 
 
 def _wa_numbers(settings: Settings, account_ids: list[str] | None = None, client=None) -> None:
@@ -333,13 +359,15 @@ def demo(out: Path) -> None:
     boss = h.roster.by_role("approver")[0].name
     t0 = datetime(2026, 10, 10, 10, 0, tzinfo=clock.tz())
 
-    echo("=== 10 Oct: an earlier purchase, so the bot has price history ===")
+    echo("=== 10 Oct: an earlier purchase and its shop bill, so the bot has a last rate ===")
     clock.freeze(t0)
     h.say(eng_n, "Cement OPC 53 grade 40 bags")
     h.tap(eng_n, 1)
-    h.say(abbas, "N1 Om Traders 395")
+    h.say(abbas, "N1 Om Traders")
     h.tap(abbas, 1)
     h.say(boss, "yes")
+    h.say(abbas, "Bill 4410\nCement OPC 53 grade 40 bag 395")
+    h.tap(abbas, 1)
 
     echo("\n\n=== 18 Oct: three sites send requirements ===")
     clock.freeze(t0 + timedelta(days=8))
@@ -353,21 +381,27 @@ def demo(out: Path) -> None:
 
     clock.freeze(t0 + timedelta(days=8, hours=2))
     h.say(abbas, "list")
-    h.say(abbas, "N2 Om Traders 420\nN3 Hira Metals 62000\nN4 Om Traders 9500\nK1 Hira Metals 85\n"
-                 "K2 Sagar Hardware 1450\nD1 Om Traders 420\nD2 Om Traders 6500\nD3 Om Traders 180")
+    echo("\n(Abbas says which shop for each item - usually a voice note - with no prices)")
+    h.say(abbas, "N2 N4 Om Traders\nN3 Hira Metals\nK1 Hira Metals\nK2 Sagar Hardware\nD1 Om Traders\n"
+                 "D2 nahi mila, next week\nD3 already sent MV Swaraj Dweep")
     h.tap(abbas, 1)
 
     clock.freeze(t0 + timedelta(days=8, hours=3))
-    h.say(boss, "cement 420 kyun? last time 395 tha", quote_last=True)
-    h.say(abbas, "Ship freight badh gaya, Om Traders ka naya rate hai", quote_last=True)
+    h.say(boss, "Sagar Hardware kaun hai? pehle kabhi nahi liya", quote_last=True)
+    h.say(abbas, "Om aur Hira ke paas shuttering ply nahi tha", quote_last=True)
     h.say(boss, "5 nahi", quote_last=True)
     h.tap(boss, 1)
+
+    clock.freeze(t0 + timedelta(days=8, hours=6))
+    echo("\n(Abbas buys at Om Traders against its challan and sends the bill)")
+    h.say(abbas, "Bill 5120\nCement OPC 53 grade 50 bag 420\nRiver sand 3 truck 9500\nCement OPC 53 grade 30 bag 420")
+    h.tap(abbas, 1)
 
     clock.freeze(t0 + timedelta(days=9))
     h.say(abbas, "dispatch PS-0002 Nicobar MV Campbell Bay")
     h.say(abbas, "dispatch PS-0002 Kamorta MV Swaraj Dweep")
     echo("\n(Abbas forwards his usual dispatch post from the group)")
-    h.say(abbas, "Diglipur Sector - Cement, gitti and welding goggles loaded in Anand Bus AN01F3868 departed today at "
+    h.say(abbas, "Diglipur Sector - Cement loaded in Anand Bus AN01F3868 departed today at "
                  "10.00 AM. Bus will be parked near BD BAR. Transportation not paid.", forwarded=True)
     clock.freeze(t0 + timedelta(days=11))
     h.tap(eng_n, 2)

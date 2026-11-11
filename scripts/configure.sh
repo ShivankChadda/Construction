@@ -73,6 +73,58 @@ echo
 ask_secret ANTHROPIC_API_KEY "Claude API key (Enter to skip for now)"
 ask_secret SARVAM_API_KEY "Sarvam API key (Enter to skip for now)"
 
+echo
+read -rp "Connect Zoho Books for past purchase rates now? (y/N): " z
+if [[ "${z,,}" == y* ]]; then
+  ask ZOHO_DC "Zoho data centre (in = India)" "in"
+  ask ZOHO_CLIENT_ID "Zoho Self Client - Client ID" ""
+  ask_secret ZOHO_CLIENT_SECRET "Zoho Self Client - Client Secret"
+  read -rsp "Zoho grant code (Generate Code tab, valid a few minutes; typing is hidden): " ZCODE
+  echo
+  if [ -n "$ZCODE" ]; then
+    ZCODE="$ZCODE" ENVF="$ENV_FILE" python3 - <<'PY' || echo "Zoho was not connected. Generate a new code and run this again."
+import json, os, re, sys, urllib.parse, urllib.request
+
+def env(k):
+    for line in open(os.environ["ENVF"]):
+        if line.startswith(k + "="):
+            return re.sub(r"\s+#.*$", "", line.split("=", 1)[1]).strip()
+    return ""
+
+def save(k, v):
+    lines = open(os.environ["ENVF"]).read().splitlines()
+    lines = [l for l in lines if not l.startswith(k + "=")] + [f"{k}={v}"]
+    open(os.environ["ENVF"], "w").write("\n".join(lines) + "\n")
+
+dc = env("ZOHO_DC") or "in"
+body = urllib.parse.urlencode({"grant_type": "authorization_code", "client_id": env("ZOHO_CLIENT_ID"),
+                               "client_secret": env("ZOHO_CLIENT_SECRET"), "code": os.environ["ZCODE"]}).encode()
+try:
+    tok = json.load(urllib.request.urlopen(f"https://accounts.zoho.{dc}/oauth/v2/token", body, timeout=30))
+except Exception as e:
+    sys.exit(f"Zoho sign-in failed: {e}")
+if "refresh_token" not in tok:
+    sys.exit(f"Zoho sign-in failed: {tok.get('error', 'no refresh token returned')}")
+save("ZOHO_REFRESH_TOKEN", tok["refresh_token"])
+req = urllib.request.Request(f"https://www.zohoapis.{dc}/books/v3/organizations",
+                             headers={"Authorization": f"Zoho-oauthtoken {tok['access_token']}"})
+orgs = json.load(urllib.request.urlopen(req, timeout=30)).get("organizations", [])
+if not orgs:
+    sys.exit("Signed in, but no Zoho Books organization was found for this login.")
+for i, o in enumerate(orgs, 1):
+    print(f"  {i}. {o['name']} (organization id {o['organization_id']})")
+if len(orgs) == 1:
+    pick = 1
+else:  # stdin is this script, so ask on the terminal
+    with open("/dev/tty") as tty:
+        print("Which organization? number: ", end="", flush=True)
+        pick = int(tty.readline().strip() or 1)
+save("ZOHO_ORG_ID", orgs[pick - 1]["organization_id"])
+print(f"Zoho Books connected: {orgs[pick - 1]['name']}")
+PY
+  fi
+fi
+
 generate ADMIN_TOKEN openssl rand -hex 24
 generate WA_VERIFY_TOKEN openssl rand -hex 16
 generate SIGNING_KEY openssl rand -base64 32

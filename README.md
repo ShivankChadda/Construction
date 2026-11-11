@@ -3,26 +3,30 @@
 A WhatsApp bot that runs site purchases for a multi-site construction company and makes leakage visible:
 
 1. **Site requirements** (Nicobar, Kamorta, Diglipur) keep coming into the *Kailash Material* group as text, **voice notes in Hindi**, or **photos of handwritten lists**. Abbas forwards each one to the bot, or engineers message the bot directly. The bot turns it into a clean, numbered requirement for the right site.
-2. **Logistics (Abbas)** sees every open item, sorted by site, and writes a purchase note the way he already does: *"N17 N18 Om Traders 420, K4 Hira Metals 62/kg"*. The bot builds a **purchase slip** and checks every line against past purchases.
-3. **The approver** gets the slip on WhatsApp as a PDF plus a short summary with alerts. He replies **"haan"**, **"no"**, or **"3 nahi"**, or taps a button. Only then does the bot issue the final slip with **his name, initials stamp, timestamp, verification code and QR code**, signed with a key only the server holds.
-4. The signed slip goes to logistics and observers. It is filed in **Google Drive**, and every line is logged in a **Google Sheet** (Purchase Register, Requisitions, Stock Ledger, Stock Summary, Audit Log).
-5. When Abbas forwards his dispatch post (photo of the list + "handed over to Prem in ship" / "loaded in Anand Bus"), the bot reads every item and asks the site to confirm what arrived with one tap. Shortages go straight to Abbas and Dad. **Site stock** updates from what actually arrived.
+2. **Logistics (Abbas)** sees every open item, sorted by site, and says (usually by voice) **which shop** each item comes from, with no prices: *"N17 N18 Om Traders, N19 nahi mila, N20 already sent"*. Items not available stay pending with the reason; items already sent or not needed are closed and the site is told.
+3. **The approver** gets the **purchase list** on WhatsApp as a PDF plus a summary: per site, each item's shop and the **last rate paid** (from recorded bills and Zoho Books), an estimated value, and alerts. He replies **"haan"**, **"no"**, or **"3 nahi"**, or taps a button.
+4. On approval the bot issues the signed list and **one signed challan per shop** (no prices) with **his name, initials stamp, verification code and QR code**. Shops supply on credit only against their challan; the QR shows whether it is genuine, already billed or expired.
+5. After buying, Abbas sends a **photo of the shop's bill**. The bot reads it, checks it against the challan (items not approved, more than approved, rate above last time, total not adding up), and after Abbas confirms sends it to the approver and accounts. The billed rates become the next "last rate".
+6. Everything is filed in **Google Drive** and logged in a **Google Sheet** (Purchase Register, Bills, Requisitions, Stock Ledger, Stock Summary, Audit Log).
+7. When Abbas forwards his dispatch post (photo of the list + "handed over to Prem in ship" / "loaded in Anand Bus"), the bot reads every item and asks the site to confirm what arrived with one tap. Shortages go straight to Abbas and Dad. **Site stock** updates from what actually arrived.
 
 ```mermaid
 flowchart LR
   E[Engineer<br/>text / voice / photo] -->|✅ Confirm| R[Requirement<br/>REQ-NIC-0012<br/>items N17, N18]
-  R --> A[Abbas<br/>'N17 Om Traders 420']
-  A -->|📤 Send| S[Slip PS-0042<br/>+ price / qty / vendor alerts]
+  R --> A[Abbas<br/>'N17 Om se, N18 nahi mila']
+  A -->|📤 Send| S[List PS-0042<br/>shop + last rate + alerts]
   S --> F{Approver<br/>yes · no · 3 nahi}
   F -->|question| A
-  F -->|approved| P[Signed PDF<br/>name · stamp · QR]
-  P --> D[Drive + Sheets]
-  P --> A2[Abbas buys & dispatches]
+  F -->|approved| P[Signed list +<br/>one challan per shop]
+  P --> B[Shop bill photo<br/>checked vs challan]
+  B --> O[Approver + accounts]
+  B --> D[Drive + Sheets]
+  P --> A2[Abbas dispatches]
   A2 --> G[Engineer: All received / short]
   G --> K[Site stock]
 ```
 
-See [`docs/samples/`](docs/samples) for real output from the scripted demo: a pending slip, a signed partly-approved slip, the requirement list, and the full WhatsApp conversation.
+See [`docs/samples/`](docs/samples) for real output from the scripted demo: a pending purchase list, a signed partly-approved list, a shop's signed challan, the requirement list, and the full WhatsApp conversation (including a shop bill checked against its challan).
 
 ## What stops leakage
 
@@ -30,7 +34,9 @@ See [`docs/samples/`](docs/samples) for real output from the scripted demo: a pe
 |---|---|
 | Buying things no site asked for | Lines without a site requirement are flagged **"Not requested by any site engineer"** |
 | Buying more than asked | **"Buying 60 bag; site asked for 50"** |
-| Inflated rates | Every line is compared with the last approved rate for the same item: **"Rate ₹420 is 6.3% above last ₹395 (Om Traders, 10 Oct)"** |
+| Inflated rates | The approver sees the last rate paid for every item (bills + Zoho Books), and each shop bill is checked: **"Rate ₹450 is 12% above last ₹400 (Om Traders, 01 Sep)"** |
+| Billing for things not approved | Each shop bill is matched to its signed challan: **"Not on challan PS-0042-1 — was not approved"**, **"Billed 60 bag; approved 50 bag"** |
+| Supplying against an old or copied approval | Challans are per shop, signed, valid 7 days, and show **"already billed"** on the QR page once billed |
 | New or friendly vendors | Vendors not on the approved list are flagged **"New vendor"** |
 | Buying the same thing twice | **"Already bought 40 bag for Nicobar on 10 Oct (PS-0001)"** |
 | Requirements invented at the office | Requirements Abbas types on a site's behalf are marked and flagged |
@@ -100,7 +106,9 @@ src/purchasebot/
   llm.py          Claude extraction (structured JSON) + offline fallback parser
   speech.py       Sarvam speech-to-text for voice notes (splits long notes with ffmpeg)
   whatsapp.py     WhatsApp Cloud API client, webhook parsing, signature check
-  pdf.py          purchase slip and requirement list PDFs
+  pdf.py          purchase list, per-shop challan and requirement list PDFs
+  rates.py        last-rate lookup (strict on sizes) over bills, Zoho Books and quoted rates
+  zoho.py         read-only Zoho Books sync of bill and item rates
   signing.py      Ed25519 signature + verification code
   google_sync.py  Drive uploads and Sheets upserts through a retrying queue
   app.py          webhook endpoint, /verify page, health check, scheduler
@@ -110,8 +118,8 @@ config/roster.example.yaml   sites, people, phone numbers, vendors
 
 ## Worth adding next
 
-1. **Vendor bill photo check.** Abbas sends a photo of the vendor's bill. Claude reads the total, and the bot flags any bill above the approved amount for that vendor. This closes the last gap: approved ₹X, billed ₹X+Y.
-2. **Purchase orders to vendors.** After approval, send each vendor its own one-page signed PO, so vendors only supply against a verified slip.
+1. **Challans to shops on WhatsApp.** Send each shop its signed challan directly, so it arrives before Abbas does. Needs each shop's number and a second Meta template.
+2. **Draft bills into Zoho Books.** Create the vendor bill in Zoho from the recorded photo, so accounts only check it instead of typing it.
 3. **Weekly stock count.** Every Saturday the bot asks each engineer to count 5–10 key items. Differences from the ledger show consumption that was never reported, or theft.
 4. **Approval limits.** Slips under, say, ₹5,000 could be approved by a deputy, so your father only sees the big ones. This is not built in because it invites splitting large purchases into small slips. Turn it on only with a daily cap.
-5. **Accounting.** The connected Zoho Books organisations are *The Farmers of Great Nicobar Pvt Ltd* and a personal one; none is the construction company. If the construction company's books move to Zoho, approved slips can be pushed in as Purchase Orders.
+5. **Accounting.** Past rates are read from Zoho Books (`bash scripts/configure.sh` connects it; choose the construction company's organisation).
