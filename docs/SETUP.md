@@ -69,11 +69,10 @@ The repository is private, so Git asks for your GitHub username and a password. 
 Then:
 
 ```bash
+bash scripts/configure.sh      # asks for the web address and keys (typed hidden), writes .env
 nano config/roster.yaml        # paste the roster from step 1
-cp .env.example .env
-nano .env                      # fill in DOMAIN, PUBLIC_BASE_URL, ADMIN_TOKEN, PRIVACY_CONTACT and the WA_ values from step 3
-docker compose run --rm bot purchasebot wa-numbers   # copy KEC's WA_PHONE_NUMBER_ID=… line into .env
-docker compose run --rm bot purchasebot gen-key   # copy the SIGNING_KEY=… line into .env
+docker compose run --rm bot purchasebot wa-numbers   # shows KEC's Phone number ID
+bash scripts/configure.sh      # run again and enter that Phone number ID
 docker compose run --rm bot purchasebot wa-register 482915   # pick your own 6 digits, once
 docker compose up -d --build
 docker compose run --rm bot purchasebot check
