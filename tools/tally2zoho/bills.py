@@ -47,8 +47,11 @@ def build(vs):
             if l['ledger'] in ROUND_LEDGERS: tally_round += -D(l['amount'])   # + = debit (adds to bill)
         party_total = next(D(l['amount']) for l in v['lines'] if l['ledger'] == v['partyledgername'])
         sub = sum(l['amount'] for l in ls)
-        # Zoho: intra-state group = CGST half + UTGST half, each rounded per line
-        z_c = sum(r2(l['amount'] * l['gst'] / 2 / 100) for l in ls)
+        # Zoho rounds tax on the bill total for each rate (CGST half + UTGST half), not line by line.
+        # Tally sometimes rounds per line, so a bill can differ by a paisa or two (KARAN TRADING 3502 did).
+        by_rate = {}
+        for l in ls: by_rate[l['gst']] = by_rate.get(l['gst'], D(0)) + l['amount']
+        z_c = sum(r2(amt * rate / 2 / 100) for rate, amt in by_rate.items())
         z_u = z_c
         z_line_total = sub + z_c + z_u
         adjustment = party_total - z_line_total
