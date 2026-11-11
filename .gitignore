@@ -9,3 +9,8 @@ config/roster.yaml
 *.key
 google_token.json
 service_account.json
+
+# Tally / Zoho data files (company books)
+*.xml
+tools/tally2zoho/*.csv
+tools/tally2zoho/*.json
