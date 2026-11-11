@@ -26,6 +26,7 @@ ROSTER = {
         {"name": "Abbas", "phone": "9000000004", "role": "logistics"},
         {"name": "Rajesh Chadda", "phone": "9000000005", "role": "approver", "initials": "RC", "title": "MD"},
         {"name": "Shivank", "phone": "9000000006", "role": "observer"},
+        {"name": "Krishna", "phone": "9000000008", "role": "accounts", "title": "Head Accountant"},
     ],
     "vendors": [
         {"name": "Om Traders", "aliases": ["ome", "om"]},
@@ -34,7 +35,7 @@ ROSTER = {
 }
 
 PHONES = {"chandra": "919000000001", "siddhu": "919000000002", "kam": "919000000003",
-          "abbas": "919000000004", "boss": "919000000005", "shivank": "919000000006"}
+          "abbas": "919000000004", "boss": "919000000005", "shivank": "919000000006", "krishna": "919000000008"}
 
 
 class ScriptedSpeech:

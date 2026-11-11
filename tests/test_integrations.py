@@ -54,11 +54,39 @@ def test_claude_refusal_becomes_parse_error():
 def test_claude_slip_parsing():
     client = FakeAnthropicClient({"lines": [
         {"ref": "n1", "site_code": "nic", "name": "Cement", "item_key": "cement", "qty": 50, "unit": "bags",
-         "vendor": "Om Traders", "rate": 420, "lump_sum": 0}], "unclear": [], "note": ""})
-    r = ClaudeParser(client=client).parse_slip("N1 om 420", [{"ref": "N1", "site_code": "NIC", "name": "Cement",
-                                                             "qty": 50, "unit": "bag", "item_key": "cement"}],
-                                               ["Om Traders"], [("NIC", "Nicobar")], [])
-    assert (r.lines[0].ref, r.lines[0].site_code, r.lines[0].unit) == ("N1", "NIC", "bag")
+         "action": "BUY", "vendor": "Om Traders", "rate": 0, "lump_sum": 0, "remark": ""},
+        {"ref": "n2", "site_code": "nic", "name": "Sand", "item_key": "sand", "qty": 3, "unit": "truck",
+         "action": "SENT", "vendor": "", "rate": 0, "lump_sum": 0, "remark": "MV Manav Star"}], "unclear": [], "note": ""})
+    r = ClaudeParser(client=client).parse_slip("N1 om se, N2 already sent", [
+        {"ref": "N1", "site_code": "NIC", "name": "Cement", "qty": 50, "unit": "bag", "item_key": "cement"},
+        {"ref": "N2", "site_code": "NIC", "name": "Sand", "qty": 3, "unit": "truck", "item_key": "sand"}],
+        ["Om Traders"], [("NIC", "Nicobar")], [])
+    assert (r.lines[0].ref, r.lines[0].site_code, r.lines[0].unit, r.lines[0].action) == ("N1", "NIC", "bag", "BUY")
+    assert (r.lines[1].action, r.lines[1].remark) == ("SENT", "MV Manav Star")
+    sent = client.calls[0]
+    assert "KNOWN SHOPS: Om Traders" in sent["messages"][0]["content"][0]["text"]
+    assert sent["output_config"]["format"]["schema"]["properties"]["lines"]["items"]["properties"]["action"]["enum"] == \
+        ["BUY", "PENDING", "SENT", "DROP"]
+
+
+def test_claude_bill_reading_and_rate_matching():
+    client = FakeAnthropicClient({"vendor": "OM TRADERS", "bill_no": "4521", "bill_date": "2026-10-19",
+                                  "lines": [{"name": "Cement OPC", "item_key": "cement", "qty": 50, "unit": "bags",
+                                             "rate": 410, "amount": 20500, "slip_line_id": 7}],
+                                  "tax_total": 0, "grand_total": 20500, "unclear": []})
+    b = ClaudeParser(client=client).parse_bill("bill", [(b"\xff\xd8", "image/jpeg")],
+                                               [{"id": 7, "name": "Cement", "qty": 50, "unit": "bag", "vendor": "Om Traders",
+                                                 "challan_no": "PS-0001-1"}])
+    assert (b.vendor, b.bill_no, b.lines[0].unit, b.lines[0].slip_line_id) == ("OM TRADERS", "4521", "bag", 7)
+    content = client.calls[0]["messages"][0]["content"]
+    assert content[0]["type"] == "image" and "7 | Cement | 50 bag | Om Traders | PS-0001-1" in content[1]["text"]
+
+    client = FakeAnthropicClient({"matches": [{"item": 1, "past": 2}, {"item": 2, "past": 0}, {"item": 9, "past": 1}]})
+    m = ClaudeParser(client=client).match_rates([
+        {"name": "Saria 12mm", "unit": "mt", "candidates": [{"name": "Binding wire", "unit": ""}, {"name": "TMT bar 12 mm", "unit": ""}]},
+        {"name": "Hand gloves", "unit": "pair", "candidates": [{"name": "Gum boots", "unit": ""}]}])
+    assert m == {0: 1}
+    assert client.calls[0]["output_config"]["effort"] == "low"
 
 
 def test_sarvam_request():

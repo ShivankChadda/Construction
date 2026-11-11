@@ -36,7 +36,9 @@ def test_happy_path_requisition_to_signed_slip(chat):
     assert Path(slip.pdf_path).name == "PS-0001_APPROVED.pdf"
 
     abbas_docs = [s for s in chat.wa.to(PHONES["abbas"]) if s.kind == "document"]
-    assert abbas_docs and abbas_docs[-1].path == slip.pdf_path
+    assert slip.pdf_path in [d.path for d in abbas_docs]
+    challans = store.challans_for_slip(chat.db, slip.id)
+    assert challans and [d.path for d in abbas_docs[-len(challans):]] == [c.pdf_path for c in challans]
     assert any(s.kind == "document" for s in chat.wa.to(PHONES["shivank"]))
     assert "approved for purchase" in chat.texts("chandra")
     statuses = {r["status"] for r in chat.db.q("SELECT status FROM req_items")}

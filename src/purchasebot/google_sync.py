@@ -21,7 +21,7 @@ from .config import Settings
 from .db import DB
 from .fmt import qty as fmt_qty
 from .roster import Roster
-from .store import load_dispatch, load_requisition, load_slip, stock_summary
+from .store import load_bill, load_challan, load_dispatch, load_requisition, load_slip, stock_summary
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +31,11 @@ TABS: dict[str, list[str]] = {
     "Purchase Register": [
         "Key", "Slip No", "Line", "Status", "Site", "Item", "Qty", "Unit", "Vendor", "Rate", "Amount",
         "Requested Qty", "Req Ref", "Requisition", "Flags", "Prepared By", "Submitted", "Decided By", "Decided At",
-        "Verification Code", "PDF", "Dispatched", "Received Qty", "Received At",
+        "Verification Code", "PDF", "Dispatched", "Received Qty", "Received At", "Last Rate", "Est. Value", "Challan",
+    ],
+    "Bills": [
+        "Key", "Bill Ref", "Line", "Shop", "Shop Bill No", "Bill Date", "Challan", "Item", "Qty", "Unit", "Rate",
+        "Amount", "On Challan", "Checks", "Bill Total", "GST", "Recorded By", "Recorded At", "Photo",
     ],
     "Requisitions": [
         "Key", "Req No", "Line", "Ref", "Site", "Engineer", "Entered By", "Item", "Qty", "Unit", "Spec",
@@ -225,8 +229,26 @@ def _run_job(db: DB, sync: GoogleSync, roster: Roster, kind: str, key: str) -> N
                 slip.decided_by_name or "", clock.fmt(slip.decided_at) if slip.decided_at else "",
                 slip.verify_code or "", slip.drive_link or "", clock.fmt(l.dispatched_at) if l.dispatched_at else "",
                 l.received_qty if l.received_qty is not None else "", clock.fmt(l.received_at) if l.received_at else "",
+                l.last_rate or "", l.est_amount or "", _challan_no(db, l.challan_id),
             ])
         sync.upsert("Purchase Register", reqs)
+    elif kind == "bill":
+        bill = load_bill(db, int(key))
+        if bill is None or bill.status != "RECORDED":
+            return
+        when = clock.parse(bill.recorded_at or bill.created_at)
+        link = db.one("SELECT drive_link FROM bills WHERE id = ?", (bill.id,))["drive_link"] or ""
+        if not link and bill.media and Path(bill.media[0]).exists():
+            links = [sync.upload(m, "Bills", when.strftime("%Y"), when.strftime("%m-%B")) for m in bill.media if Path(m).exists()]
+            link = " ".join(links)
+            db.run("UPDATE bills SET drive_link = ? WHERE id = ?", (link, bill.id))
+        by = roster.person(bill.submitted_by)
+        sync.upsert("Bills", [[
+            f"{bill.bill_ref}#{l.line_no}", bill.bill_ref, l.line_no, bill.vendor, bill.vendor_bill_no, bill.bill_date,
+            bill.challan_no or "", l.name, l.qty, l.unit, l.rate, l.amount, "yes" if l.slip_line_id else "NO",
+            "; ".join(f.text for f in l.flags), bill.grand_total, bill.tax_total, by.name if by else bill.submitted_by,
+            clock.fmt(bill.recorded_at), link,
+        ] for l in bill.lines])
     elif kind == "req":
         req = load_requisition(db, int(key))
         if req is None:
@@ -279,3 +301,10 @@ def _run_job(db: DB, sync: GoogleSync, roster: Roster, kind: str, key: str) -> N
                 db.run("UPDATE requisitions SET media_link = ? WHERE media_link = ?", (link, path))
     else:
         log.warning("Unknown sync job kind %s", kind)
+
+
+def _challan_no(db: DB, challan_id: int | None) -> str:
+    if not challan_id:
+        return ""
+    ch = load_challan(db, challan_id)
+    return ch.challan_no if ch else ""

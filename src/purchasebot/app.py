@@ -16,7 +16,7 @@ from . import clock
 from .config import Settings, get_settings
 from .fmt import inr, qty
 from .signing import canonical
-from .store import load_slip
+from .store import billed_qty, challan_by_number, load_slip
 from .whatsapp import parse_webhook, verify_signature
 from .workflow import Bot
 
@@ -92,6 +92,13 @@ def create_app(bot: Bot | None = None, settings: Settings | None = None, run_sch
 
     @app.get("/verify/{slip_no}", response_class=HTMLResponse)
     def verify_slip(slip_no: str, c: str = ""):
+        if slip_no.count("-") == 2:  # PS-0007-1: a shop's challan
+            ch = challan_by_number(bot.db, slip_no)
+            if not ch or not ch.verify_code or not hmac.compare_digest(c.upper(), ch.verify_code):
+                raise HTTPException(status_code=404, detail="Not found")
+            valid = bot.signer.verify(canonical(bot.challan_payload(ch)), ch.signature or "")
+            billed = {l.id: billed_qty(bot.db, l.id) for l in ch.lines}
+            return HTMLResponse(_challan_page(ch, bot.roster.company.name, valid, billed, bot.roster.site_name))
         row = bot.db.one("SELECT id, verify_code FROM slips WHERE slip_no = ?", (slip_no,))
         # The code acts as a capability: without it, don't reveal that the slip exists.
         if not row or not row["verify_code"] or not hmac.compare_digest(c.upper(), row["verify_code"]):
@@ -154,4 +161,52 @@ Prepared by {escape(slip.prepared_by_name)} · Verification code {escape(slip.ve
 <tbody>{rows}</tbody></table></div>
 <p><b>Approved total: {inr(slip.approved_total)}</b></p>
 <p class="muted">If the paper or PDF you hold differs from this page in any item, quantity, rate or vendor, it has been altered.</p>
+</main></body></html>"""
+
+
+def _challan_page(ch, company: str, valid: bool, billed: dict[int, float], site_name) -> str:
+    expired = bool(ch.valid_until) and clock.now_iso() > ch.valid_until
+    if not valid:
+        verdict = "<div class='bad'>✘ Signature check FAILED — do not supply against this challan</div>"
+    elif ch.status == "CANCELLED":
+        verdict = "<div class='bad'>✘ This challan was cancelled — do not supply</div>"
+    elif ch.status == "BILLED":
+        verdict = (f"<div class='warn'>Genuine, but <b>already billed</b> on {clock.fmt(ch.billed_at)} — "
+                   "do not supply again against it</div>")
+    elif expired:
+        verdict = f"<div class='warn'>Genuine, but <b>expired</b> on {clock.fmt(ch.valid_until)} — ask for a new approval</div>"
+    elif ch.status == "PART_BILLED":
+        verdict = "<div class='ok'>✔ Genuine — partly billed; supply only the quantities still open below</div>"
+    else:
+        verdict = "<div class='ok'>✔ Genuine and valid — you may supply the items below on credit</div>"
+    rows = "".join(
+        f"<tr><td>{i}</td><td>{escape(l.name)}<small>{escape(site_name(l.site_code))}</small></td>"
+        f"<td>{qty(l.qty)} {escape(l.unit)}</td><td>{qty(billed.get(l.id, 0))}</td>"
+        f"<td>{qty(max(0.0, l.qty - billed.get(l.id, 0)))}</td></tr>"
+        for i, l in enumerate(ch.lines, start=1)
+    )
+    valid_line = f" · Valid until {clock.fmt(ch.valid_until, with_time=False)}" if ch.valid_until else ""
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Verify {escape(ch.challan_no)}</title>
+<style>
+:root{{--ink:#1f2933;--muted:#6b7280;--rule:#e5e7eb;--bg:#fafaf9;--ok:#15803d;--bad:#b91c1c;--warn:#b45309}}
+body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}}
+main{{max-width:760px;margin:0 auto;padding:20px 16px}}
+h1{{font-size:20px;margin:0 0 4px}} .muted{{color:var(--muted)}}
+.ok,.bad,.warn{{padding:12px 14px;border-radius:8px;font-weight:600;margin:14px 0;color:#fff}}
+.ok{{background:var(--ok)}} .bad{{background:var(--bad)}} .warn{{background:var(--warn)}}
+table{{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}}
+th,td{{text-align:left;padding:8px 6px;border-bottom:1px solid var(--rule);vertical-align:top}}
+td small{{display:block;color:var(--muted)}} .wrap{{overflow-x:auto}}
+</style></head><body><main>
+<div class="muted">{escape(company)}</div>
+<h1>Purchase challan {escape(ch.challan_no)}</h1>
+<p>To <b>{escape(ch.vendor)}</b></p>
+{verdict}
+<p>Approved by <b>{escape(ch.decided_by_name or '')}</b> on {clock.fmt(ch.decided_at)}{valid_line}<br>
+Verification code {escape(ch.verify_code or '')}</p>
+<div class="wrap"><table><thead><tr><th>#</th><th>Item</th><th>Approved</th><th>Billed</th><th>Still open</th></tr></thead>
+<tbody>{rows}</tbody></table></div>
+<p class="muted">Supply only the items and quantities still open. If the paper you were shown differs from this page,
+it has been altered.</p>
 </main></body></html>"""

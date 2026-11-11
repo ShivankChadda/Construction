@@ -76,6 +76,8 @@ class ParsedSlipLine:
     vendor: str
     rate: float
     lump_sum: float = 0.0
+    action: str = "BUY"   # BUY, PENDING (not available now), SENT (already sent), DROP (not needed)
+    remark: str = ""
 
 
 @dataclass
@@ -83,6 +85,28 @@ class SlipParse:
     lines: list[ParsedSlipLine]
     unclear: list[str] = field(default_factory=list)
     note: str = ""
+
+
+@dataclass
+class ParsedBillLine:
+    name: str
+    item_key: str
+    qty: float
+    unit: str
+    rate: float
+    amount: float
+    slip_line_id: int = 0  # the approved challan line this is, 0 if it isn't on the challan
+
+
+@dataclass
+class BillParse:
+    vendor: str
+    bill_no: str
+    bill_date: str  # YYYY-MM-DD or ""
+    lines: list[ParsedBillLine]
+    tax_total: float = 0.0
+    grand_total: float = 0.0
+    unclear: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -126,6 +150,8 @@ class Parser(Protocol):
                        images: list[tuple[bytes, str]] | None = None) -> DispatchParse: ...
     def parse_receipt(self, text: str, lines: list[dict]) -> list[QtyLine]: ...
     def parse_usage(self, text: str, stock_items: list[dict]) -> list[UsageItem]: ...
+    def parse_bill(self, text: str, images: list[tuple[bytes, str]], challan_lines: list[dict]) -> BillParse: ...
+    def match_rates(self, items: list[dict]) -> dict[int, int]: ...
 
 
 # ---------------------------------------------------------------- Claude
@@ -146,22 +172,42 @@ Common Hindi terms: sariya/saria = TMT bar, gitti/rodi = stone aggregate, balu/r
 
 When CURRENT LIST is given, the new message edits that list: it may add items, change quantities, or remove items ("remove sand", "cement 60 nahi 50"). Return the complete updated list, and put a one-line summary of the change in note."""
 
-_SLIP_SYSTEM = """You read purchase notes written by the logistics manager of a construction company. He decides which vendor supplies each requested item and at what rate. Turn his note into purchase lines.
+_SLIP_SYSTEM = """You read the purchase plan of the logistics manager of a construction company in the Andaman & Nicobar Islands. He goes through the open requirements from the sites and says, item by item, which shop to buy each one from. He usually gives no prices: prices are set at the shop and checked later against the bill. He often speaks (voice-note transcript) in Hindi, English or a mix.
 
-OPEN REQUIREMENTS lists items site engineers asked for, each with a ref like N17 (site letter + number). Map each purchase line to its ref when it clearly matches (by ref, or by item name and site). Use the requested qty when he doesn't state one. Use ref "" for things nobody requested (transport, freight, extra items) and then set site_code from the note.
+OPEN REQUIREMENTS lists what site engineers asked for, each with a ref like N17 (site letter + number). For every requirement he mentions, return one line with an action:
+- BUY: he names a shop. vendor = the shop. rate = a price per unit only if he states one, else 0.
+- PENDING: not available now ("not available", "nahi mila", "stock nahi hai", "out of stock", "baad mein", "dispatch pending"). The item stays on the open list. remark = why, and where he tried if he says so.
+- SENT: already sent to the site earlier ("already sent", "pehle bhej diya", "last consignment mein gaya", "MV Manav Star se gaya"). remark = how or when it went (vessel, date) if he says so.
+- DROP: not needed or cancelled ("not needed", "zarurat nahi", "cancel"). remark = the reason.
+
+Refs: he may give ranges ("N1 to N5", "N1 se N5" = N1, N2, N3, N4, N5), lists ("N2, N3 aur N7"), or say "baaki sab" / "rest" / "all others" = every open requirement he has not mentioned yet (of the site he is talking about, or all sites if he names none). He may also name items instead of refs; match them to the open requirement.
 
 For each line:
-- ref: the open requirement ref or "".
-- site_code: the site code the material is for (from the ref, or from the note). Use one of the SITES codes.
-- name, item_key, unit: as in the requirement when a ref is used; otherwise a clear English name, a short lowercase key (reuse KNOWN ITEM KEYS when it's the same item), and a unit.
-- qty: quantity being bought (0 only if truly unknown).
-- vendor: supplier name as written; if it matches one in KNOWN VENDORS (spelling variations like Ome/Om, Hera/Hira), use the known name exactly.
-- rate: price per unit in rupees (e.g. "420" for 420 per bag; "62/kg" with qty in mt means rate per kg — convert so rate is per the line's unit; 62/kg -> 62000 per mt). 0 if only a total was given.
-- lump_sum: total rupees for the line when he gives a total instead of a rate, else 0.
-- unclear: parts of the note you could not turn into a line.
-- note: "" for a new slip.
+- ref: the open requirement ref, or "" for something nobody requested (freight, extra items) - those are always BUY, with site_code from the note.
+- site_code: one of the SITES codes (from the ref, or from the note).
+- name, item_key, unit, qty: as in the requirement when a ref is used (use the requested qty unless he states another); otherwise a clear English name, a short lowercase key (reuse KNOWN ITEM KEYS when it is the same item), and a unit.
+- vendor: for BUY only, else "". If it matches one of KNOWN SHOPS (spelling variations like Ome/Om, Hera/Hira), use the known name exactly. Otherwise write the shop name as he said it; do not add words like Traders, Stores or Trading.
+- rate: per unit in rupees if stated ("62/kg" with qty in mt -> rate per mt = 62000), else 0.
+- lump_sum: total rupees for the line if he gives a total instead of a rate, else 0.
+- remark: as described above for PENDING / SENT / DROP; for BUY anything he adds about the purchase ("brand Supreme", "urgent"), else "".
+- unclear: only parts of the note you could not place at all. A PENDING / SENT / DROP item is not unclear - put the reason in remark.
+- note: "" for a new plan.
 
-When CURRENT SLIP is given, the note edits it (change rate/vendor/qty, add or remove lines). Return the complete updated list of lines and summarise the change in note."""
+When CURRENT PLAN is given, the note edits it (change shop, mark an item not available, add or remove lines). Return the complete updated list and summarise the change in note."""
+
+_RATE_MATCH_SYSTEM = """A construction company compares each item it is about to buy with what it paid last time. For each ITEM, choose the PAST PURCHASE that is the same item: same material and the same size, grade or specification. Sizes must match exactly (20 mm is not 25 mm; 20x15 is not 20x20). Different wording is fine ("TMT bar 12mm" = "Saria 12 mm", "Male adapter" = "Male adaptor"), and so is a different brand of the identical item. If none of the candidates is the same item, answer 0. Never guess."""
+
+_BILL_SYSTEM = """You read a shop's bill, cash memo, invoice or delivery challan photographed by the logistics manager of a construction company after buying materials on credit. Read it carefully, including handwriting.
+
+Extract:
+- vendor: the shop's name as printed or written on the bill.
+- bill_no: the bill / invoice / memo number, "" if none.
+- bill_date: the bill date as YYYY-MM-DD, "" if not readable.
+- lines: every item billed. name (keep size/spec), item_key (short lowercase key), qty, unit (nos, kg, bag, mt, m, litre, set, pair, box, roll, packet, sheet, length, ...), rate per unit before tax as written (if only the amount is given, amount / qty), amount for the line.
+  slip_line_id: if the item is one of APPROVED CHALLAN LINES (same item and size), that line's id, else 0. Never match two bill lines to one challan line unless the bill clearly splits it.
+- tax_total: total GST/tax on the bill, 0 if none shown.
+- grand_total: the bill's final total, 0 if not readable.
+- unclear: anything you could not read with confidence (quote it briefly)."""
 
 _DISPATCH_SYSTEM = """The logistics manager of a construction company in the Andaman & Nicobar Islands reports a dispatch to a site: a caption, and often a photo of a handwritten list of what was sent (or a photo of the parcel / vehicle).
 
@@ -214,17 +260,60 @@ SLIP_SCHEMA = {
                 "item_key": {"type": "string"},
                 "qty": {"type": "number"},
                 "unit": {"type": "string"},
+                "action": {"type": "string", "enum": ["BUY", "PENDING", "SENT", "DROP"]},
                 "vendor": {"type": "string"},
                 "rate": {"type": "number"},
                 "lump_sum": {"type": "number"},
+                "remark": {"type": "string"},
             },
-            "required": ["ref", "site_code", "name", "item_key", "qty", "unit", "vendor", "rate", "lump_sum"],
+            "required": ["ref", "site_code", "name", "item_key", "qty", "unit", "action", "vendor", "rate", "lump_sum",
+                         "remark"],
             "additionalProperties": False,
         }},
         "unclear": {"type": "array", "items": {"type": "string"}},
         "note": {"type": "string"},
     },
     "required": ["lines", "unclear", "note"],
+    "additionalProperties": False,
+}
+RATE_MATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "matches": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"item": {"type": "integer"}, "past": {"type": "integer"}},
+            "required": ["item", "past"],
+            "additionalProperties": False,
+        }},
+    },
+    "required": ["matches"],
+    "additionalProperties": False,
+}
+BILL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "vendor": {"type": "string"},
+        "bill_no": {"type": "string"},
+        "bill_date": {"type": "string"},
+        "lines": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "item_key": {"type": "string"},
+                "qty": {"type": "number"},
+                "unit": {"type": "string"},
+                "rate": {"type": "number"},
+                "amount": {"type": "number"},
+                "slip_line_id": {"type": "integer"},
+            },
+            "required": ["name", "item_key", "qty", "unit", "rate", "amount", "slip_line_id"],
+            "additionalProperties": False,
+        }},
+        "tax_total": {"type": "number"},
+        "grand_total": {"type": "number"},
+        "unclear": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["vendor", "bill_no", "bill_date", "lines", "tax_total", "grand_total", "unclear"],
     "additionalProperties": False,
 }
 DISPATCH_SCHEMA = {
@@ -288,7 +377,7 @@ class ClaudeParser:
         self.model = model
         self.effort = effort
 
-    def _call(self, system: str, content: list[dict], schema: dict) -> dict:
+    def _call(self, system: str, content: list[dict], schema: dict, effort: str | None = None) -> dict:
         try:
             # Server-side fallback re-runs the request on another model if a safety
             # classifier ever declines it (unlikely for material lists, but free to enable).
@@ -297,7 +386,7 @@ class ClaudeParser:
                 max_tokens=16000,
                 system=system,
                 messages=[{"role": "user", "content": content}],
-                output_config={"effort": self.effort, "format": {"type": "json_schema", "schema": schema}},
+                output_config={"effort": effort or self.effort, "format": {"type": "json_schema", "schema": schema}},
                 betas=["server-side-fallback-2026-07-01"],
                 fallbacks="default",
             )
@@ -343,13 +432,14 @@ class ClaudeParser:
             for it in open_items) or "(none)"
         parts = [
             "SITES: " + ", ".join(f"{c}={n}" for c, n in sites),
-            f"KNOWN VENDORS: {', '.join(vendors) or '(none)'}",
+            f"KNOWN SHOPS: {', '.join(vendors) or '(none)'}",
             f"KNOWN ITEM KEYS: {', '.join(known_items) or '(none)'}",
             f"OPEN REQUIREMENTS:\n{req_lines}",
         ]
         if current:
-            parts.append("CURRENT SLIP:\n" + "\n".join(
-                f"{i}. ref={l.ref or '-'} | site={l.site_code} | {l.name} | {l.qty:g} {l.unit} | {l.vendor} | rate {l.rate:g}"
+            parts.append("CURRENT PLAN:\n" + "\n".join(
+                f"{i}. ref={l.ref or '-'} | site={l.site_code} | {l.name} | {l.qty:g} {l.unit} | {l.action} | "
+                f"shop={l.vendor or '-'} | rate {l.rate:g} | remark={l.remark or '-'}"
                 for i, l in enumerate(current, 1)))
         parts.append(f"NOTE:\n{text}")
         d = self._call(_SLIP_SYSTEM, [{"type": "text", "text": "\n\n".join(parts)}], SLIP_SCHEMA)
@@ -357,7 +447,9 @@ class ClaudeParser:
             lines=[ParsedSlipLine(ref=l["ref"].strip().upper(), site_code=l["site_code"].strip().upper(),
                                   name=l["name"].strip(), item_key=norm_key(l["item_key"]) or norm_key(l["name"]),
                                   qty=float(l["qty"]), unit=norm_unit(l["unit"]), vendor=l["vendor"].strip(),
-                                  rate=float(l["rate"]), lump_sum=float(l["lump_sum"]))
+                                  rate=max(0.0, float(l["rate"])), lump_sum=max(0.0, float(l["lump_sum"])),
+                                  action=l["action"] if l["action"] in ("BUY", "PENDING", "SENT", "DROP") else "BUY",
+                                  remark=l["remark"].strip())
                    for l in d["lines"]],
             unclear=d["unclear"], note=d["note"],
         )
@@ -379,6 +471,40 @@ class ClaudeParser:
                    for i in d["items"] if i["name"].strip()],
             unclear=d["unclear"],
         )
+
+    def parse_bill(self, text, images, challan_lines):
+        listing = "\n".join(f"{l['id']} | {l['name']} | {l['qty']:g} {l['unit']} | {l['vendor']} | {l['challan_no']}"
+                            for l in challan_lines) or "(none)"
+        content: list[dict] = []
+        for data, mime in images:
+            block = "document" if mime == "application/pdf" else "image"
+            content.append({"type": block, "source": {"type": "base64", "media_type": mime,
+                                                      "data": base64.standard_b64encode(data).decode()}})
+        content.append({"type": "text", "text": f"APPROVED CHALLAN LINES (id | item | qty | shop | challan):\n{listing}"
+                                                f"\n\nCAPTION:\n{text or '(none)'}"})
+        d = self._call(_BILL_SYSTEM, content, BILL_SCHEMA)
+        return BillParse(
+            vendor=d["vendor"].strip(), bill_no=d["bill_no"].strip(), bill_date=d["bill_date"].strip(),
+            lines=[ParsedBillLine(name=l["name"].strip(), item_key=norm_key(l["item_key"]) or norm_key(l["name"]),
+                                  qty=max(0.0, float(l["qty"])), unit=norm_unit(l["unit"]), rate=max(0.0, float(l["rate"])),
+                                  amount=max(0.0, float(l["amount"])), slip_line_id=int(l["slip_line_id"]))
+                   for l in d["lines"] if l["name"].strip()],
+            tax_total=max(0.0, float(d["tax_total"])), grand_total=max(0.0, float(d["grand_total"])),
+            unclear=d["unclear"],
+        )
+
+    def match_rates(self, items):
+        parts = []
+        for i, it in enumerate(items, 1):
+            cands = "\n".join(f"   {j}. {c['name']} ({c['unit'] or '-'})" for j, c in enumerate(it["candidates"], 1))
+            parts.append(f"ITEM {i}: {it['name']} ({it['unit']})\n PAST PURCHASES:\n{cands}")
+        d = self._call(_RATE_MATCH_SYSTEM, [{"type": "text", "text": "\n\n".join(parts)}], RATE_MATCH_SCHEMA, effort="low")
+        out: dict[int, int] = {}
+        for m in d["matches"]:
+            i, j = int(m["item"]), int(m["past"])
+            if 1 <= i <= len(items) and 1 <= j <= len(items[i - 1]["candidates"]):
+                out[i - 1] = j - 1
+        return out
 
     def parse_receipt(self, text, lines):
         listing = "\n".join(f"{l['line_no']}. {l['name']} - dispatched {l['qty']:g} {l['unit']}" for l in lines)
@@ -402,10 +528,31 @@ _ITEM_LINE = re.compile(
 _QTY_FIRST = re.compile(
     rf"^\s*(?P<qty>\d+(?:\.\d+)?)\s*(?P<unit>{_UNIT_RE})?\b\.?\s*(?:of\s+)?(?P<name>[a-z].*)$", re.IGNORECASE
 )
-_SLIP_LINE = re.compile(
-    r"^\s*(?P<refs>(?:[a-z]\d+[\s,&]*(?:and\s+)?)+)\s*[-:]?\s*(?P<vendor>[a-z][a-z .&']*?)\s*@?\s*(?:rs\.?\s*)?(?P<rate>\d+(?:\.\d+)?)\s*(?:/\s*\w+)?\s*$",
+_SLIP_REFS = re.compile(r"^\s*(?P<refs>(?:[a-z]\d+(?:\s*(?:-|to|se)\s*[a-z]?\d+)?[\s,&]*(?:and\s+|aur\s+)?)+)\s*[-:]?\s*(?P<rest>.*)$",
+                        re.IGNORECASE)
+_SLIP_VENDOR = re.compile(r"^(?:from\s+)?(?P<vendor>[a-z][a-z .&']*?)(?:\s+se)?\s*@?\s*(?:rs\.?\s*)?(?P<rate>\d+(?:\.\d+)?)?\s*(?:/\s*\w+)?\s*$",
+                          re.IGNORECASE)
+_NOTE_ACTIONS = [
+    ("DROP", re.compile(r"\b(not needed|no need|cancel(?:led)?|drop|zarurat nahi|nahi chahiye)\b", re.IGNORECASE)),
+    ("SENT", re.compile(r"\b(already sent|sent already|bhej diya|bheja hua|already dispatched|gaya hua|gaya tha)\b", re.IGNORECASE)),
+    ("PENDING", re.compile(r"\b(not available|unavailable|nahi mila|out of stock|no stock|pending|later|baad mein)\b", re.IGNORECASE)),
+]
+_BILL_LINE = re.compile(
+    r"^\s*(?P<name>.*[a-z].*?)\s+(?P<qty>\d+(?:\.\d+)?)\s*(?P<unit>" + _UNIT_RE + r")?\b\.?\s*(?:@|x|×|rate)?\s*"
+    r"(?:rs\.?\s*)?(?P<rate>\d+(?:\.\d+)?)\s*(?:/\s*\w+)?\s*$",
     re.IGNORECASE,
 )
+
+
+def _expand_refs(refs: str) -> list[str]:
+    out: list[str] = []
+    for m in re.finditer(r"([a-z])(\d+)(?:\s*(?:-|to|se)\s*([a-z])?(\d+))?", refs, re.IGNORECASE):
+        letter, a, b = m.group(1).upper(), int(m.group(2)), m.group(4)
+        if b and int(b) >= a and int(b) - a <= 50:
+            out += [f"{letter}{n}" for n in range(a, int(b) + 1)]
+        else:
+            out.append(f"{letter}{a}")
+    return out
 
 
 # Words that mark a logistics message as a dispatch report ("Car Nicobar Sector - items handed over to Prem").
@@ -461,28 +608,81 @@ class RuleParser:
                         note="list updated" if current else "")
 
     def parse_slip(self, text, open_items, vendors, sites, known_items, current=None):
+        """'N1 N2 Om Traders', 'N3-N5 Hira 62', 'N6 not available at Om', 'N7 already sent MV Campbell Bay'."""
         by_ref = {it["ref"].upper(): it for it in open_items}
         lines = list(current or [])
         unclear: list[str] = []
         for raw in [p.strip() for p in re.split(r"[\n;]", text) if p.strip()]:
-            m = _SLIP_LINE.match(raw)
-            if not m:
+            m = _SLIP_REFS.match(raw)
+            if not m or not m.group("rest").strip():
                 unclear.append(raw)
                 continue
-            refs = re.findall(r"[a-z]\d+", m.group("refs"), re.IGNORECASE)
-            vendor = m.group("vendor").strip()
-            known = next((v for v in vendors if v.lower().startswith(vendor.lower()[:3])), vendor)
-            rate = float(m.group("rate"))
-            for ref in refs:
-                it = by_ref.get(ref.upper())
+            rest = m.group("rest").strip()
+            action = next((a for a, rx in _NOTE_ACTIONS if rx.search(rest)), "BUY")
+            vendor, rate, remark = "", 0.0, ""
+            if action == "BUY":
+                vm = _SLIP_VENDOR.match(rest)
+                if not vm:
+                    unclear.append(raw)
+                    continue
+                vendor = vm.group("vendor").strip()
+                vendor = next((v for v in vendors if v.lower().startswith(vendor.lower()[:3])), vendor.title())
+                rate = float(vm.group("rate") or 0)
+            else:
+                remark = rest
+            for ref in _expand_refs(m.group("refs")):
+                it = by_ref.get(ref)
                 if not it:
                     unclear.append(f"{ref}: not an open requirement")
                     continue
-                lines = [l for l in lines if l.ref != ref.upper()]
-                lines.append(ParsedSlipLine(ref=ref.upper(), site_code=it["site_code"], name=it["name"],
-                                            item_key=it["item_key"], qty=it["qty"], unit=it["unit"],
-                                            vendor=known, rate=rate))
-        return SlipParse(lines=lines, unclear=unclear, note="slip updated" if current else "")
+                lines = [l for l in lines if l.ref != ref]
+                lines.append(ParsedSlipLine(ref=ref, site_code=it["site_code"], name=it["name"], item_key=it["item_key"],
+                                            qty=it["qty"], unit=it["unit"], vendor=vendor, rate=rate, action=action,
+                                            remark=remark))
+        return SlipParse(lines=lines, unclear=unclear, note="plan updated" if current else "")
+
+    def parse_bill(self, text, images, challan_lines):
+        """Typed bills only ('Cement 50 bag 410' per line); reading photos needs Claude."""
+        lines: list[ParsedBillLine] = []
+        unclear: list[str] = []
+        bill_no = ""
+        total = 0.0
+        used: set[int] = set()
+        for raw in [p.strip() for p in re.split(r"[\n;]", text or "") if p.strip()]:
+            low = raw.lower()
+            if m := re.match(r"^(?:bill|invoice|memo)\s*(?:no\.?|number|#)?\s*[:\-]?\s*(\S+)$", low):
+                bill_no = m.group(1).upper()
+                continue
+            if m := re.match(r"^(?:grand\s+)?total\s*[:\-]?\s*(?:rs\.?\s*)?(\d+(?:\.\d+)?)$", low):
+                total = float(m.group(1))
+                continue
+            if re.fullmatch(r"(bill|invoice|challan|cash memo)", low):
+                continue
+            m = _BILL_LINE.match(raw)
+            if not m:
+                unclear.append(raw)
+                continue
+            name = m.group("name").strip(" -:")
+            key = norm_key(name)
+            q, rate = float(m.group("qty")), float(m.group("rate"))
+            match = next((c for c in challan_lines if c["id"] not in used and
+                          (key in norm_key(c["name"]) or norm_key(c["name"]) in key)), None)
+            if match:
+                used.add(match["id"])
+            lines.append(ParsedBillLine(name=name[:1].upper() + name[1:], item_key=key, qty=q,
+                                        unit=norm_unit(m.group("unit") or "nos"), rate=rate, amount=round(q * rate, 2),
+                                        slip_line_id=match["id"] if match else 0))
+        if images and not lines:
+            unclear.append("Reading bill photos needs the Claude API key. Type the bill as lines like: Cement 50 bag 410")
+        return BillParse(vendor="", bill_no=bill_no, bill_date="", lines=lines, grand_total=total, unclear=unclear)
+
+    def match_rates(self, items):
+        out: dict[int, int] = {}
+        for i, it in enumerate(items):
+            best = max(range(len(it["candidates"])), key=lambda j: it["candidates"][j]["score"], default=None)
+            if best is not None and it["candidates"][best]["score"] >= 0.6:
+                out[i] = best
+        return out
 
     def parse_dispatch(self, text, open_lines, images=None):
         m = re.search(r"(?:handed over to|by hand of|loaded in|sent with|sent by|through)\s+(.+?)(?=\s+departed|\s+travelling|[,\n]|\.\s|$)",

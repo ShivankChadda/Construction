@@ -7,7 +7,8 @@ from datetime import timedelta
 
 from . import clock
 from .db import DB
-from .models import Dispatch, DispatchItem, Flag, ReqItem, Requisition, Slip, SlipLine
+from .models import (BUY, Bill, BillLine, Challan, Dispatch, DispatchItem, Flag, ReqItem, Requisition, Slip,
+                     SlipLine)
 
 
 def load_requisition(db: DB, req_id: int) -> Requisition | None:
@@ -17,7 +18,7 @@ def load_requisition(db: DB, req_id: int) -> Requisition | None:
     items = [
         ReqItem(
             id=i["id"], line_no=i["line_no"], ref=i["ref"], name=i["name"], item_key=i["item_key"],
-            qty=i["qty"], unit=i["unit"], spec=i["spec"], status=i["status"],
+            qty=i["qty"], unit=i["unit"], spec=i["spec"], status=i["status"], note=i["note"],
         )
         for i in db.q("SELECT * FROM req_items WHERE requisition_id = ? ORDER BY line_no", (req_id,))
     ]
@@ -49,25 +50,28 @@ def load_slip(db: DB, slip_id: int) -> Slip | None:
         "WHERE sl.slip_id = ? ORDER BY sl.line_no",
         (slip_id,),
     )
-    lines = [
-        SlipLine(
-            id=l["id"], line_no=l["line_no"], site_code=l["site_code"], req_item_id=l["req_item_id"],
-            ref=l["ref"], req_no=l["req_no"], name=l["name"], item_key=l["item_key"], qty=l["qty"],
-            unit=l["unit"], vendor=l["vendor"], rate=l["rate"], amount=l["amount"],
-            requested_qty=l["requested_qty"], last_rate=l["last_rate"], last_rate_date=l["last_rate_date"],
-            last_vendor=l["last_vendor"], flags=[Flag(**f) for f in json.loads(l["flags"])],
-            status=l["status"], dispatched_at=l["dispatched_at"], dispatch_note=l["dispatch_note"],
-            received_qty=l["received_qty"], received_at=l["received_at"],
-        )
-        for l in rows
-    ]
+    lines = [_slip_line(l) for l in rows]
     return Slip(
         id=s["id"], slip_no=s["slip_no"], version=s["version"], status=s["status"],
         prepared_by_name=s["prepared_by_name"], prepared_by_phone=s["prepared_by_phone"],
         created_at=s["created_at"], submitted_at=s["submitted_at"], decided_at=s["decided_at"],
         decided_by_name=s["decided_by_name"], decided_by_phone=s["decided_by_phone"],
         decision_ref=s["decision_ref"], decision_text=s["decision_text"], signature=s["signature"],
-        verify_code=s["verify_code"], pdf_path=s["pdf_path"], drive_link=s["drive_link"], lines=lines,
+        verify_code=s["verify_code"], pdf_path=s["pdf_path"], drive_link=s["drive_link"],
+        lines=[l for l in lines if l.action == BUY], notes=[l for l in lines if l.action != BUY],
+    )
+
+
+def _slip_line(l) -> SlipLine:
+    return SlipLine(
+        id=l["id"], line_no=l["line_no"], site_code=l["site_code"], req_item_id=l["req_item_id"],
+        ref=l["ref"], req_no=l["req_no"], name=l["name"], item_key=l["item_key"], qty=l["qty"],
+        unit=l["unit"], vendor=l["vendor"], rate=l["rate"], amount=l["amount"],
+        requested_qty=l["requested_qty"], last_rate=l["last_rate"], last_rate_date=l["last_rate_date"],
+        last_vendor=l["last_vendor"], flags=[Flag(**f) for f in json.loads(l["flags"])],
+        status=l["status"], dispatched_at=l["dispatched_at"], dispatch_note=l["dispatch_note"],
+        received_qty=l["received_qty"], received_at=l["received_at"], action=l["action"], remark=l["remark"],
+        last_rate_name=l["last_rate_name"], challan_id=l["challan_id"],
     )
 
 
@@ -96,7 +100,7 @@ def open_items(db: DB) -> list[dict]:
     return [
         dict(r)
         for r in db.q(
-            "SELECT ri.id, ri.ref, ri.name, ri.item_key, ri.qty, ri.unit, ri.spec, r.site_code, r.req_no, "
+            "SELECT ri.id, ri.ref, ri.name, ri.item_key, ri.qty, ri.unit, ri.spec, ri.note, r.site_code, r.req_no, "
             "r.engineer_name, r.urgent, r.needed_by, r.submitted_at, "
             "CASE WHEN r.entered_by_phone != r.engineer_phone AND r.source != 'group' THEN 1 ELSE 0 END AS by_logistics "
             "FROM req_items ri JOIN requisitions r ON r.id = ri.requisition_id "
@@ -125,24 +129,29 @@ def known_item_keys(db: DB, limit: int = 150) -> list[str]:
 
 
 def known_vendor_names(db: DB) -> set[str]:
-    return {r["vendor"].lower() for r in db.q("SELECT DISTINCT vendor FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id WHERE s.status IN ('APPROVED','PARTIAL')")}
+    """Shops already bought from: on an approved slip, or on a past bill (ours or Zoho's)."""
+    names = {r["vendor"].lower() for r in db.q(
+        "SELECT DISTINCT vendor FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
+        "WHERE s.status IN ('APPROVED','PARTIAL') AND sl.action = 'BUY'")}
+    names |= {r["vendor"].lower() for r in db.q("SELECT DISTINCT vendor FROM rate_history WHERE vendor != ''")}
+    return names
 
 
-def last_approved_rate(db: DB, item_key: str, unit: str, exclude_slip: int | None = None) -> dict | None:
-    r = db.one(
-        "SELECT sl.rate, sl.vendor, s.decided_at, s.slip_no FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
-        "WHERE sl.item_key = ? AND LOWER(sl.unit) = LOWER(?) AND sl.status = 'APPROVED' AND s.id != ? "
-        "ORDER BY s.decided_at DESC LIMIT 1",
-        (item_key, unit, exclude_slip or -1),
-    )
-    return dict(r) if r else None
+def recent_vendor_names(db: DB, limit: int = 60) -> list[str]:
+    """Shop names as last written, most used first, so the parser can reuse their exact spelling."""
+    rows = db.q(
+        "SELECT vendor, COUNT(*) AS n FROM (SELECT vendor FROM slip_lines WHERE action = 'BUY' AND vendor != '' "
+        "UNION ALL SELECT vendor FROM rate_history WHERE vendor != '') GROUP BY LOWER(vendor) ORDER BY n DESC LIMIT ?",
+        (limit,))
+    return [r["vendor"] for r in rows]
 
 
 def recent_purchase(db: DB, item_key: str, site_code: str, days: int, exclude_slip: int | None = None) -> dict | None:
     since = (clock.now() - timedelta(days=days)).isoformat(timespec="seconds")
     r = db.one(
         "SELECT sl.qty, sl.unit, s.slip_no, s.decided_at FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
-        "WHERE sl.item_key = ? AND sl.site_code = ? AND sl.status = 'APPROVED' AND s.decided_at >= ? AND s.id != ? "
+        "WHERE sl.item_key = ? AND sl.site_code = ? AND sl.status = 'APPROVED' AND sl.action = 'BUY' "
+        "AND s.decided_at >= ? AND s.id != ? "
         "ORDER BY s.decided_at DESC LIMIT 1",
         (item_key, site_code, since, exclude_slip or -1),
     )
@@ -174,7 +183,7 @@ def open_dispatches(db: DB, site_code: str) -> list[Dispatch]:
 def undispatched_lines(db: DB, site_code: str, slip_id: int | None = None) -> list[dict]:
     """Approved slip lines for a site that haven't been sent yet."""
     sql = ("SELECT sl.id, sl.name, sl.item_key, sl.qty, sl.unit, sl.vendor, s.slip_no FROM slip_lines sl "
-           "JOIN slips s ON s.id = sl.slip_id WHERE sl.site_code = ? AND sl.status = 'APPROVED' "
+           "JOIN slips s ON s.id = sl.slip_id WHERE sl.site_code = ? AND sl.status = 'APPROVED' AND sl.action = 'BUY' "
            "AND sl.received_qty IS NULL AND NOT EXISTS (SELECT 1 FROM dispatch_items di WHERE di.slip_line_id = sl.id)")
     params: list = [site_code]
     if slip_id is not None:
@@ -192,3 +201,79 @@ def stock_summary(db: DB, site_code: str | None = None) -> list[dict]:
     if site_code:
         return [dict(r) for r in db.q(sql.format(where="WHERE site_code = ?"), (site_code,))]
     return [dict(r) for r in db.q(sql.format(where=""))]
+
+
+# ---- challans ----
+
+def _challan_query(where: str) -> str:
+    return ("SELECT c.*, s.slip_no, s.decided_by_name, s.decided_by_phone, s.decided_at FROM challans c "
+            f"JOIN slips s ON s.id = c.slip_id WHERE {where}")
+
+
+def _load_challan_row(db: DB, c) -> Challan:
+    rows = db.q(
+        "SELECT sl.*, ri.ref AS ref, r.req_no AS req_no FROM slip_lines sl "
+        "LEFT JOIN req_items ri ON ri.id = sl.req_item_id LEFT JOIN requisitions r ON r.id = ri.requisition_id "
+        "WHERE sl.challan_id = ? ORDER BY sl.line_no", (c["id"],))
+    return Challan(
+        id=c["id"], challan_no=c["challan_no"], slip_id=c["slip_id"], slip_no=c["slip_no"], vendor=c["vendor"],
+        status=c["status"], verify_code=c["verify_code"], signature=c["signature"], pdf_path=c["pdf_path"],
+        valid_until=c["valid_until"], created_at=c["created_at"], billed_at=c["billed_at"],
+        decided_by_name=c["decided_by_name"], decided_by_phone=c["decided_by_phone"], decided_at=c["decided_at"],
+        lines=[_slip_line(l) for l in rows],
+    )
+
+
+def load_challan(db: DB, challan_id: int) -> Challan | None:
+    c = db.one(_challan_query("c.id = ?"), (challan_id,))
+    return _load_challan_row(db, c) if c else None
+
+
+def challan_by_number(db: DB, challan_no: str) -> Challan | None:
+    c = db.one(_challan_query("UPPER(c.challan_no) = UPPER(?)"), (challan_no,))
+    return _load_challan_row(db, c) if c else None
+
+
+def challans_for_slip(db: DB, slip_id: int) -> list[Challan]:
+    return [_load_challan_row(db, c) for c in db.q(_challan_query("c.slip_id = ? ORDER BY c.id"), (slip_id,))]
+
+
+def open_challans(db: DB) -> list[Challan]:
+    """Approved challans not fully billed yet: what a shop bill can belong to."""
+    return [_load_challan_row(db, c) for c in db.q(_challan_query("c.status IN ('OPEN','PART_BILLED') ORDER BY c.id"))]
+
+
+def billed_qty(db: DB, slip_line_id: int) -> float:
+    r = db.one("SELECT COALESCE(SUM(bl.qty), 0) AS q FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id "
+               "WHERE bl.slip_line_id = ? AND b.status = 'RECORDED'", (slip_line_id,))
+    return r["q"]
+
+
+# ---- bills ----
+
+def load_bill(db: DB, bill_id: int) -> Bill | None:
+    b = db.one("SELECT b.*, c.challan_no FROM bills b LEFT JOIN challans c ON c.id = b.challan_id WHERE b.id = ?",
+               (bill_id,))
+    if not b:
+        return None
+    lines = [BillLine(id=l["id"], line_no=l["line_no"], name=l["name"], item_key=l["item_key"], qty=l["qty"],
+                      unit=l["unit"], rate=l["rate"], amount=l["amount"], slip_line_id=l["slip_line_id"],
+                      flags=[Flag(**f) for f in json.loads(l["flags"])])
+             for l in db.q("SELECT * FROM bill_lines WHERE bill_id = ? ORDER BY line_no", (bill_id,))]
+    return Bill(id=b["id"], bill_ref=b["bill_ref"], challan_id=b["challan_id"], challan_no=b["challan_no"],
+                vendor=b["vendor"], printed_vendor=b["printed_vendor"], vendor_bill_no=b["vendor_bill_no"], bill_date=b["bill_date"], status=b["status"],
+                tax_total=b["tax_total"], grand_total=b["grand_total"], media=json.loads(b["media"]),
+                unclear=json.loads(b["unclear"]), submitted_by=b["submitted_by"], created_at=b["created_at"],
+                recorded_at=b["recorded_at"], lines=lines)
+
+
+def draft_bill_id(db: DB, phone: str) -> int | None:
+    row = db.one("SELECT id FROM bills WHERE submitted_by = ? AND status = 'DRAFT' ORDER BY id DESC LIMIT 1", (phone,))
+    return row["id"] if row else None
+
+
+def credit_by_vendor(db: DB, since: str) -> list[tuple[str, float, int]]:
+    """Recorded shop bills since a date: (vendor, total, number of bills), largest first."""
+    rows = db.q("SELECT vendor, SUM(grand_total) AS t, COUNT(*) AS n FROM bills WHERE status = 'RECORDED' "
+                "AND recorded_at >= ? GROUP BY vendor ORDER BY t DESC", (since,))
+    return [(r["vendor"], round(r["t"], 2), r["n"]) for r in rows]

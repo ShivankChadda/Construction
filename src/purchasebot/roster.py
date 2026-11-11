@@ -14,7 +14,9 @@ from pathlib import Path
 
 import yaml
 
-ROLES = {"engineer", "logistics", "approver", "observer"}
+ROLES = {"engineer", "logistics", "approver", "observer", "accounts"}
+# Roles that read along: copies of approved lists and the evening summary. Accounts also get shop bills.
+READERS = ("observer", "accounts")
 
 
 def normalize_phone(raw: str) -> str:
@@ -72,8 +74,8 @@ class Roster:
         p = normalize_phone(phone)
         return next((x for x in self.people if x.phone == p), None)
 
-    def by_role(self, role: str) -> list[Person]:
-        return [x for x in self.people if x.role == role]
+    def by_role(self, *roles: str) -> list[Person]:
+        return [x for x in self.people if x.role in roles]
 
     def site(self, code: str) -> Site | None:
         return next((s for s in self.sites if s.code == code), None)

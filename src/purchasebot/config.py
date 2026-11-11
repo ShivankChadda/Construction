@@ -54,6 +54,7 @@ class Settings(BaseSettings):
 
     # --- Controls ---
     price_alert_pct: float = 5.0  # flag a line when the rate is this much above the last purchase
+    challan_valid_days: int = 7  # a signed shop challan is good for this many days after approval
     recent_purchase_days: int = 10  # flag repeat purchases of the same item for the same site
     approval_reminder_hours: float = 4.0
     max_approval_reminders: int = 3

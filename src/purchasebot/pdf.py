@@ -1,4 +1,5 @@
-"""PDF documents: the purchase slip (draft / approved / rejected) and the open requirement list.
+"""PDF documents: the purchase list (draft / approved / rejected), the signed challan for each shop,
+and the open requirement list.
 
 Built-in PDF fonts have no rupee glyph, so amounts print as "Rs.".
 """
@@ -27,7 +28,7 @@ from reportlab.platypus import (
 
 from . import clock
 from .fmt import inr, qty
-from .models import APPROVED, CANCELLED, PARTIAL, REJECTED, Slip
+from .models import APPROVED, CANCELLED, DROP, PARTIAL, PENDING_STOCK, REJECTED, SENT, Challan, Slip
 from .roster import Roster
 
 INK = colors.HexColor("#1F2933")
@@ -179,12 +180,12 @@ def render_slip_pdf(slip: Slip, roster: Roster, out_path: str | Path, verify_url
         footer += f"  ·  Verification code {slip.verify_code}"
     doc = SimpleDocTemplate(
         str(out), pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm, topMargin=14 * mm, bottomMargin=16 * mm,
-        title=f"Purchase Slip {slip.slip_no}", author=roster.company.name,
+        title=f"Purchase List {slip.slip_no}", author=roster.company.name,
     )
     story: list = []
 
     when = slip.submitted_at or slip.created_at
-    story.append(_header(roster, "PURCHASE SLIP", [
+    story.append(_header(roster, "PURCHASE LIST", [
         f"<b>{slip.slip_no}</b>" + (f"  (revision {slip.version})" if slip.version > 1 else ""),
         f"Date: {clock.fmt(when, with_time=False)}",
     ]))
@@ -198,15 +199,15 @@ def render_slip_pdf(slip: Slip, roster: Roster, out_path: str | Path, verify_url
         f"Sites: <b>{_e(site_names)}</b>", "body"))
 
     # ---- lines grouped by site ----
-    col_w = [8 * mm, 62 * mm, 16 * mm, 18 * mm, 20 * mm, 22 * mm, 34 * mm]
+    col_w = [8 * mm, 54 * mm, 16 * mm, 27 * mm, 31 * mm, 19 * mm, 25 * mm]
     for site_code in slip.sites():
         lines = slip.lines_for_site(site_code)
         engineers = ", ".join(p.name for p in roster.engineers_for(site_code)) or "-"
         reqs = sorted({l.req_no for l in lines if l.req_no})
         sub = f"Engineer: {_e(engineers)}" + (f"  ·  Requisitions: {_e(', '.join(reqs))}" if reqs else "")
         story.append(_p(f"{_e(roster.site_name(site_code).upper())}&nbsp;&nbsp;<font name='Helvetica' size=7 color='#6B7280'>{sub}</font>", "h2"))
-        rows = [[_p("<b>#</b>"), _p("<b>Item</b>"), _p("<b>Qty</b>", "cellr"), _p("<b>Rate</b>", "cellr"),
-                 _p("<b>Amount</b>", "cellr"), _p("<b>Vendor</b>"), _p("<b>Status</b>")]]
+        rows = [[_p("<b>#</b>"), _p("<b>Item</b>"), _p("<b>Qty</b>", "cellr"), _p("<b>Shop</b>"),
+                 _p("<b>Last rate</b>"), _p("<b>Est. value</b>", "cellr"), _p("<b>Status</b>")]]
         styles = []
         subtotal = 0.0
         for i, l in enumerate(lines, start=1):
@@ -217,27 +218,39 @@ def render_slip_pdf(slip: Slip, roster: Roster, out_path: str | Path, verify_url
                 detail.append(f"Ref {l.ref}")
             if l.requested_qty is not None and l.requested_qty != l.qty:
                 detail.append(f"site asked {qty(l.requested_qty)} {_e(l.unit)}")
+            if l.rate > 0:
+                detail.append(f"quoted {rs(l.rate)}/{_e(l.unit)}")
+            if l.remark:
+                detail.append(_e(l.remark))
             sub = f"<br/><font size=6.5 color='#6B7280'>{' · '.join(detail)}</font>" if detail else ""
             flags = "".join(f"<br/><font size=6.5 color='#B45309'>[!] {_e(f.text)}</font>" for f in l.flags)
             status_text = {"APPROVED": "<font color='#15803D'><b>APPROVED</b></font>",
                            "REJECTED": "<font color='#B91C1C'><b>NOT APPROVED</b></font>"}.get(l.status, "Pending")
+            if l.last_rate:
+                when_ = clock.fmt(l.last_rate_date, with_time=False) if l.last_rate_date else "Zoho item rate"
+                last = f"{rs(l.last_rate)}<br/><font size=6.5 color='#6B7280'>{_e(l.last_vendor or '')} {when_}"
+                if l.last_rate_name and l.last_rate_name.lower() not in (l.name.lower(), l.item_key):
+                    last += f"<br/>as \"{_e(l.last_rate_name[:40])}\""
+                last += "</font>"
+            else:
+                last = "<font color='#6B7280'>no past rate</font>"
             rows.append([
                 _p(str(l.line_no)),
                 _p(strike(_e(l.name)) + sub + flags),
                 _p(strike(f"{qty(l.qty)} {_e(l.unit)}"), "cellr"),
-                _p(strike(rs(l.rate)), "cellr"),
-                _p(strike(rs(l.amount)), "cellr"),
                 _p(strike(_e(l.vendor))),
+                _p(last),
+                _p(strike(rs(l.est_amount)) if l.est_amount else "-", "cellr"),
                 _p(status_text),
             ])
             if not rejected:
-                subtotal += l.amount
+                subtotal += l.est_amount
             if rejected:
                 styles.append(("TEXTCOLOR", (0, i), (-1, i), MUTED))
             if i % 2 == 0:
                 styles.append(("BACKGROUND", (0, i), (-1, i), ZEBRA))
-        rows.append(["", _p("<b>Site total" + (" (excl. not approved)" if decided else "") + "</b>"), "", "",
-                     _p(f"<b>{rs(subtotal)}</b>", "cellr"), "", ""])
+        rows.append(["", _p("<b>Site est." + (" (excl. not approved)" if decided else "") + "</b>"), "", "", "",
+                     _p(f"<b>{rs(subtotal)}</b>", "cellr"), ""])
         t = Table(rows, colWidths=col_w, repeatRows=1)
         t.setStyle(TableStyle([
             ("LINEBELOW", (0, 0), (-1, 0), 0.8, INK),
@@ -251,37 +264,62 @@ def render_slip_pdf(slip: Slip, roster: Roster, out_path: str | Path, verify_url
         ]))
         story.append(t)
 
-    # ---- vendor summary and totals ----
-    story.append(_p("VENDOR SUMMARY", "h2"))
-    vt = slip.vendor_totals(approved_only=decided)
-    vrows = [[_p("<b>Vendor</b>"), _p("<b>Lines</b>", "cellr"), _p("<b>Amount</b>", "cellr")]]
-    vrows += [[_p(_e(v)), _p(str(n), "cellr"), _p(rs(a), "cellr")] for v, n, a in vt]
-    if not vt:
-        vrows.append([_p("No lines approved"), "", ""])
-    vrows.append([_p("Total of all lines"), "", _p(rs(slip.total), "cellr")])
-    if decided:
-        vrows.append([_p("<b>Approved for purchase</b>"), "", _p(f"<b>{rs(slip.approved_total)}</b>", "cellr")])
-    n_tot = 2 if decided else 1
-    vtable = Table(vrows, colWidths=[110 * mm, 25 * mm, 45 * mm])
-    vtable.setStyle(TableStyle([
-        ("LINEBELOW", (0, 0), (-1, 0), 0.8, INK),
-        ("LINEABOVE", (0, -n_tot), (-1, -n_tot), 0.6, RULE),
-        ("LINEABOVE", (0, -1), (-1, -1), 1 if decided else 0.6, INK if decided else RULE),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-    ]))
-    story.append(vtable)
+    # ---- items not being bought now ----
+    if slip.notes:
+        story.append(_p("NOT BUYING NOW", "h2"))
+        label = {PENDING_STOCK: "<font color='#B45309'><b>Not available</b></font> - stays pending",
+                 SENT: "<b>Already sent</b> - not purchased", DROP: "<b>Not needed</b> - closed"}
+        nrows = [[_p("<b>Ref</b>"), _p("<b>Item</b>"), _p("<b>Site</b>"), _p("<b>Status</b>"), _p("<b>Remark</b>")]]
+        for n in slip.notes:
+            nrows.append([_p(_e(n.ref or "")), _p(f"{_e(n.name)} - {qty(n.qty)} {_e(n.unit)}"),
+                          _p(_e(roster.site_name(n.site_code))), _p(label[n.action]), _p(_e(n.remark) or "-")])
+        nt = Table(nrows, colWidths=[14 * mm, 66 * mm, 24 * mm, 36 * mm, 40 * mm], repeatRows=1)
+        nt.setStyle(TableStyle([
+            ("LINEBELOW", (0, 0), (-1, 0), 0.8, INK),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ZEBRA]),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(nt)
+
+    # ---- shop summary and estimate ----
+    if slip.lines:
+        story.append(_p("BY SHOP", "h2"))
+        vt = slip.vendor_totals(approved_only=decided)
+        vrows = [[_p("<b>Shop</b>"), _p("<b>Items</b>", "cellr"), _p("<b>Est. value</b>", "cellr")]]
+        vrows += [[_p(_e(v)), _p(str(n), "cellr"), _p(rs(a) if a else "-", "cellr")] for v, n, a in vt]
+        if not vt:
+            vrows.append([_p("No lines approved"), "", ""])
+        missing = slip.unpriced
+        vrows.append([_p("Estimated value of all lines" + (f" ({missing} without a past rate)" if missing else "")),
+                      "", _p(rs(slip.total), "cellr")])
+        if decided:
+            vrows.append([_p("<b>Approved (estimated)</b>"), "", _p(f"<b>{rs(slip.approved_total)}</b>", "cellr")])
+        n_tot = 2 if decided else 1
+        vtable = Table(vrows, colWidths=[110 * mm, 25 * mm, 45 * mm])
+        vtable.setStyle(TableStyle([
+            ("LINEBELOW", (0, 0), (-1, 0), 0.8, INK),
+            ("LINEABOVE", (0, -n_tot), (-1, -n_tot), 0.6, RULE),
+            ("LINEABOVE", (0, -1), (-1, -1), 1 if decided else 0.6, INK if decided else RULE),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(vtable)
+        story.append(_p("Estimates use the last rate paid for each item. Actual prices come from the shop bills, "
+                        "which are checked against the signed challans.", "small"))
     story.append(Spacer(1, 6))
 
     # ---- checks ----
     n_flags = sum(len(l.flags) for l in slip.lines)
     if n_flags:
-        seen = "were shown to the approver before the decision" if decided else "are shown to the approver with this slip"
+        seen = "were shown to the approver before the decision" if decided else "are shown to the approver with this list"
         story.append(_p(f"<b>Checks:</b> {n_flags} alert{'s' if n_flags != 1 else ''} (marked [!] above) {seen}.", "body"))
     else:
-        story.append(_p("<b>Checks:</b> no price, quantity, vendor or repeat-purchase alerts on this slip.", "body"))
+        story.append(_p("<b>Checks:</b> no price, quantity, shop or repeat-purchase alerts on this list.", "body"))
     story.append(Spacer(1, 8))
 
     story.append(KeepTogether(_approval_block(slip, roster, verify_url)))
@@ -306,8 +344,9 @@ def _approval_block(slip: Slip, roster: Roster, verify_url: str) -> list:
             _p(f"Reply recorded: “{_e((slip.decision_text or '')[:80])}”", "small"),
             Spacer(1, 4),
             _p(f"Verification code: <b>{_e(slip.verify_code)}</b>", "body"),
-            _p("Scan the QR code to check this slip against the original record. "
-               "Any change to items, quantities, rates or vendors makes the check fail.", "small"),
+            _p("Scan the QR code to check this list against the original record. "
+               "Any change to items, quantities or shops makes the check fail. Each shop gets its own signed challan.",
+               "small"),
         ]
         right_cells = [Stamp(initials, clock.fmt(slip.decided_at, with_time=False), size=26 * mm)]
         if verify_url:
@@ -341,6 +380,80 @@ def _approval_block(slip: Slip, roster: Roster, verify_url: str) -> list:
     t.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 1, AMBER), ("LEFTPADDING", (0, 0), (-1, -1), 10),
                            ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
     return [t]
+
+
+def render_challan_pdf(ch: Challan, roster: Roster, out_path: str | Path, verify_url: str = "",
+                       buyer: str = "") -> Path:
+    """The signed purchase order a shop supplies against. No prices: the shop bills at its rate, and the
+    bill is checked against this challan."""
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    footer = f"Generated by the purchase approval bot  ·  Verification code {ch.verify_code}"
+    doc = SimpleDocTemplate(str(out), pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm, topMargin=14 * mm,
+                            bottomMargin=16 * mm, title=f"Purchase Challan {ch.challan_no}", author=roster.company.name)
+    right = [f"<b>{ch.challan_no}</b>", f"Date: {clock.fmt(ch.decided_at or ch.created_at, with_time=False)}"]
+    if ch.valid_until:
+        right.append(f"Valid until: <b>{clock.fmt(ch.valid_until, with_time=False)}</b>")
+    story: list = [_header(roster, "PURCHASE CHALLAN", right), Spacer(1, 6),
+                   _banner("APPROVED PURCHASE ORDER - SUPPLY ON CREDIT", GREEN), Spacer(1, 8)]
+    co = roster.company
+    story.append(_p("TO", "label"))
+    story.append(_p(f"<b>{_e(ch.vendor)}</b>", "h1"))
+    story.append(Spacer(1, 4))
+    who = f"our representative <b>{_e(buyer)}</b> (Logistics)" if buyer else "our representative"
+    story.append(_p(f"Please supply the items below to {who} on credit, against this challan. "
+                    f"Bill to <b>{_e(co.name)}</b>" + (f", {_e(co.address)}" if co.address else "") +
+                    (f", GSTIN {_e(co.gstin)}" if co.gstin else "") +
+                    f". Please write <b>{ch.challan_no}</b> on your bill.", "body"))
+    story.append(Spacer(1, 6))
+    rows = [[_p("<b>#</b>"), _p("<b>Item</b>"), _p("<b>Qty</b>", "cellr"), _p("<b>Unit</b>"), _p("<b>For site</b>")]]
+    for i, l in enumerate(ch.lines, start=1):
+        sub = f"<br/><font size=6.5 color='#6B7280'>{_e(l.remark)}</font>" if l.remark else ""
+        rows.append([_p(str(i)), _p(_e(l.name) + sub), _p(qty(l.qty), "cellr"), _p(_e(l.unit)),
+                     _p(_e(roster.site_name(l.site_code)))])
+    t = Table(rows, colWidths=[10 * mm, 98 * mm, 22 * mm, 20 * mm, 30 * mm], repeatRows=1)
+    t.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (-1, 0), 0.8, INK),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ZEBRA]),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 6))
+    story.append(_p("<b>Supply only these items and quantities.</b> Anything not on this challan needs a new approval "
+                    "and will not be paid against it. Scan the QR code to check that the challan is genuine and has not "
+                    "already been billed.", "body"))
+    story.append(Spacer(1, 8))
+    approver = next((p for p in roster.people if p.phone == ch.decided_by_phone), None)
+    initials = approver.initials if approver else "".join(w[0] for w in (ch.decided_by_name or "?").split()[:3])
+    left = [
+        _p("APPROVED AND DIGITALLY SIGNED BY", "label"),
+        Paragraph(_e(ch.decided_by_name), S["sig"]),
+        _p(_e(approver.title if approver else ""), "small"),
+        Spacer(1, 4),
+        _p(f"Approved on WhatsApp on <b>{clock.fmt(ch.decided_at)}</b> (purchase list {ch.slip_no})", "body"),
+        _p(f"Verification code: <b>{_e(ch.verify_code)}</b>", "body"),
+    ]
+    cells = [Stamp(initials, clock.fmt(ch.decided_at, with_time=False), size=26 * mm)]
+    if verify_url:
+        cells.append(_qr(verify_url, size=24 * mm))
+    right_t = Table([cells], colWidths=[30 * mm] * len(cells))
+    right_t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
+    box = Table([[left, right_t]], colWidths=[180 * mm - 30 * mm * len(cells) - 4 * mm, 30 * mm * len(cells) + 4 * mm])
+    box.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1, STAMP_BLUE),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (0, 0), 10),
+    ]))
+    story.append(KeepTogether([box]))
+    watermark = "CANCELLED" if ch.status == CANCELLED else None
+    doc.build(story, onFirstPage=_page_decorator(ch.challan_no, footer, watermark),
+              onLaterPages=_page_decorator(ch.challan_no, footer, watermark))
+    return out
 
 
 def render_requirements_pdf(items: list[dict], roster: Roster, out_path: str | Path) -> Path:

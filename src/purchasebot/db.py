@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS req_items (
   qty REAL NOT NULL,
   unit TEXT NOT NULL,
   spec TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'OPEN'  -- OPEN, IN_SLIP, ORDERED, REJECTED, CANCELLED
+  status TEXT NOT NULL DEFAULT 'OPEN',  -- OPEN, IN_SLIP, ORDERED, REJECTED, CANCELLED, SENT, DROPPED
+  note TEXT NOT NULL DEFAULT ''         -- logistics remark: "not available at Om (18 Oct)", "already sent by MV X"
 );
 CREATE INDEX IF NOT EXISTS ix_req_items_ref ON req_items(ref);
 
@@ -100,8 +101,77 @@ CREATE TABLE IF NOT EXISTS slip_lines (
   dispatch_note TEXT,
   received_qty REAL,
   received_at TEXT,
-  received_by TEXT
+  received_by TEXT,
+  action TEXT NOT NULL DEFAULT 'BUY',      -- BUY; or PENDING / SENT / DROP: noted on the list, not for approval
+  remark TEXT NOT NULL DEFAULT '',
+  last_rate_name TEXT,                     -- the past item the last rate was matched to
+  challan_id INTEGER REFERENCES challans(id)
 );
+
+-- One signed purchase order per shop, made when a slip is approved. Carries no prices.
+CREATE TABLE IF NOT EXISTS challans (
+  id INTEGER PRIMARY KEY,
+  challan_no TEXT UNIQUE NOT NULL,         -- PS-0007-1
+  slip_id INTEGER NOT NULL REFERENCES slips(id),
+  vendor TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'OPEN',     -- OPEN, PART_BILLED, BILLED, CANCELLED
+  signature TEXT,
+  verify_code TEXT,
+  pdf_path TEXT,
+  drive_link TEXT,
+  valid_until TEXT,
+  created_at TEXT NOT NULL,
+  billed_at TEXT
+);
+
+-- Shop bills logistics photographs after buying, checked against the challan.
+CREATE TABLE IF NOT EXISTS bills (
+  id INTEGER PRIMARY KEY,
+  bill_ref TEXT UNIQUE,                    -- BL-0001
+  challan_id INTEGER REFERENCES challans(id),
+  vendor TEXT NOT NULL DEFAULT '',          -- the shop as we know it (the challan's shop when matched)
+  printed_vendor TEXT NOT NULL DEFAULT '',  -- the name as printed on the bill
+  vendor_bill_no TEXT NOT NULL DEFAULT '',
+  bill_date TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,                    -- DRAFT, RECORDED, CANCELLED
+  tax_total REAL NOT NULL DEFAULT 0,
+  grand_total REAL NOT NULL DEFAULT 0,
+  media TEXT NOT NULL DEFAULT '[]',        -- saved photo paths, JSON list
+  unclear TEXT NOT NULL DEFAULT '[]',
+  submitted_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  recorded_at TEXT,
+  drive_link TEXT
+);
+
+CREATE TABLE IF NOT EXISTS bill_lines (
+  id INTEGER PRIMARY KEY,
+  bill_id INTEGER NOT NULL REFERENCES bills(id),
+  line_no INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  item_key TEXT NOT NULL,
+  qty REAL NOT NULL,
+  unit TEXT NOT NULL,
+  rate REAL NOT NULL,
+  amount REAL NOT NULL,
+  slip_line_id INTEGER REFERENCES slip_lines(id),
+  flags TEXT NOT NULL DEFAULT '[]'
+);
+
+-- Past purchase rates: from recorded bills and from Zoho Books.
+CREATE TABLE IF NOT EXISTS rate_history (
+  id INTEGER PRIMARY KEY,
+  source TEXT NOT NULL,                    -- bill, zoho_bill, zoho_item
+  ref TEXT NOT NULL,
+  name TEXT NOT NULL,
+  item_key TEXT NOT NULL,
+  unit TEXT NOT NULL DEFAULT '',
+  rate REAL NOT NULL,
+  vendor TEXT NOT NULL DEFAULT '',
+  rate_date TEXT NOT NULL DEFAULT '',
+  UNIQUE(source, ref)
+);
+CREATE INDEX IF NOT EXISTS ix_rate_history_key ON rate_history(item_key);
 
 CREATE TABLE IF NOT EXISTS dispatches (
   id INTEGER PRIMARY KEY,
@@ -201,8 +271,26 @@ class DB:
         self.conn.execute("PRAGMA foreign_keys = ON")
         if self.path != ":memory:":
             self.conn.execute("PRAGMA journal_mode = WAL")
+        self._migrate()
         self.conn.executescript(SCHEMA)
         self.lock = threading.RLock()
+
+    # Columns added after the first release. CREATE TABLE IF NOT EXISTS leaves old tables alone,
+    # so a database from an earlier version gets them here.
+    _ADDED_COLUMNS = {
+        "req_items": [("note", "TEXT NOT NULL DEFAULT ''")],
+        "slip_lines": [("action", "TEXT NOT NULL DEFAULT 'BUY'"), ("remark", "TEXT NOT NULL DEFAULT ''"),
+                       ("last_rate_name", "TEXT"), ("challan_id", "INTEGER")],
+    }
+
+    def _migrate(self) -> None:
+        for table, cols in self._ADDED_COLUMNS.items():
+            have = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+            if not have:
+                continue  # new database: SCHEMA creates the table with every column
+            for name, decl in cols:
+                if name not in have:
+                    self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
     # ---- basics ----
     def q(self, sql: str, params: Iterable[Any] = ()) -> list[sqlite3.Row]:

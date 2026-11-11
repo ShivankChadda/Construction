@@ -1,8 +1,10 @@
 """The purchase workflow, driven by WhatsApp messages.
 
     Engineer ──list/voice/photo──▶ draft requisition ──✅──▶ REQ-NIC-0012 (items N17, N18…)
-    Abbas ──"N17 Om Traders 420"──▶ draft slip PS-0042 (price/qty/vendor checks) ──📤──▶
-    Approver ──"yes" / "3 nahi" / button──▶ signed PDF ──▶ Abbas, observers, Drive, Sheets
+    Abbas ──"N17 N18 Om se, N19 nahi mila, N20 already sent"──▶ draft purchase list PS-0042
+          (shop per item, last rates, checks; not-available / already-sent items noted) ──📤──▶
+    Approver ──"yes" / "3 nahi" / button──▶ signed list + one signed challan per shop ──▶ Abbas
+    Abbas ──photo of the shop's bill──▶ checked against the challan ──✅──▶ approver, accounts, rates
     Abbas ──"dispatch PS-42"──▶ engineer ──"All received" / shortage──▶ site stock
 
 Every handler runs under one lock: messages are processed one at a time.
@@ -26,9 +28,12 @@ from .fmt import inr, lakh, qty
 from .google_sync import GoogleSync, enqueue, process_queue
 from .llm import (DISPATCH_WORDS, UNITS, ParsedDispatchItem, ParsedItem, ParsedSlipLine, ParseError, Parser, ReqParse,
                   norm_key, norm_unit)
-from .models import APPROVED, DRAFT, PARTIAL, PENDING, REJECTED, Flag, Slip
-from .pdf import render_requirements_pdf, render_slip_pdf
-from .roster import Person, Roster
+from .models import (APPROVED, BILLED, BUY, CANCELLED, DRAFT, DROP, PART_BILLED, PARTIAL, PENDING, PENDING_STOCK,
+                     REJECTED, SENT, Challan, Flag, Slip)
+from .pdf import render_challan_pdf, render_requirements_pdf, render_slip_pdf
+from .rates import RateBook
+from .rates import record as record_rate
+from .roster import READERS, Person, Roster
 from .signing import Signer, canonical, verify_code
 from .speech import Speech, SpeechError
 from .whatsapp import REENGAGEMENT_ERROR, Incoming, WhatsApp, WhatsAppError
@@ -36,6 +41,8 @@ from .whatsapp import REENGAGEMENT_ERROR, Incoming, WhatsApp, WhatsAppError
 log = logging.getLogger(__name__)
 
 HELP_WORDS = {"help", "menu", "start", "hi", "hello", "namaste", "madad", "?"}
+# A photo or message from logistics that is a shop's bill rather than a requirement list.
+BILL_WORDS = re.compile(r"\b(bill|invoice|cash ?memo|challan|receipt|parchi|purchi)\b", re.IGNORECASE)
 
 
 class UserError(Exception):
@@ -123,8 +130,8 @@ class Bot:
             ob = self.db.outbound(msg.context_id)
             if ob and self._on_quote(p, msg, ob):
                 return
-        handler = {"engineer": self._as_engineer, "logistics": self._as_logistics,
-                   "approver": self._as_approver, "observer": self._as_observer}[p.role]
+        handler = {"engineer": self._as_engineer, "logistics": self._as_logistics, "approver": self._as_approver,
+                   "observer": self._as_observer, "accounts": self._as_observer}[p.role]
         handler(p, msg)
 
     def _db_state_clear_if(self, p: Person, states: tuple[str, ...]) -> None:
@@ -187,7 +194,8 @@ class Bot:
             return self._show_pending(p)
         role_actions = {
             "engineer": {"RQ_OK", "RQ_EDIT", "RQ_X", "GR_ALL", "GR_SHORT"},
-            "logistics": {"RQ_OK", "RQ_EDIT", "RQ_X", "SL_SEND", "SL_EDIT", "SL_X", "SITE"},
+            "logistics": {"RQ_OK", "RQ_EDIT", "RQ_X", "SL_SEND", "SL_EDIT", "SL_X", "SITE", "PH_BILL", "PH_REQ",
+                          "BL_OK", "BL_X"},
             "approver": {"AP_YES", "AP_NO", "AP_ASK", "AP_PYES", "AP_PNO"},
         }.get(p.role, set())
         if action not in role_actions:
@@ -202,6 +210,10 @@ class Bot:
             return self._grn_button(p, action, int(args[0]))
         if action == "SITE":
             return self._site_chosen(p, args[0], args[1] if len(args) > 1 else None)
+        if action in ("PH_BILL", "PH_REQ"):
+            return self._photo_kind_chosen(p, action == "PH_BILL")
+        if action in ("BL_OK", "BL_X"):
+            return self._bill_button(p, action, int(args[0]))
         slip_id, version = int(args[0]), int(args[1])
         if action == "AP_YES":
             return self._approver_decides(p, slip_id, version, Decision(approval.APPROVE_ALL), "✅ Approve all (button)", msg.wamid)
@@ -404,6 +416,16 @@ class Bot:
             if site:
                 return self._site_chosen(p, site.code)
             self.db.set_state(p.phone, "")
+        if msg.kind in ("image", "document") and not msg.forwarded:
+            if BILL_WORDS.search(text):
+                return self._bill_input(p, content)
+            draft_bill = store.draft_bill_id(self.db, p.phone)
+            if draft_bill and not text and self._recent(store.load_bill(self.db, draft_bill).created_at, minutes=15):
+                return self._bill_input(p, content)  # the next page of the same bill
+            if store.open_challans(self.db) and not store.draft_slip_id(self.db, p.phone):
+                return self._ask_photo_kind(p, content)
+        if msg.kind == "text" and not msg.forwarded and "\n" in text and re.match(r"^\s*(bill|invoice|cash ?memo)\b", t):
+            return self._bill_input(p, content)  # a typed bill: "Bill 4521\nCement 50 bag 410 ..."
         if msg.kind == "text" and not msg.forwarded:
             if re.fullmatch(r"(list|open|pending|items|requirements?)( pdf)?", t):
                 return self._open_list(p)
@@ -654,28 +676,30 @@ class Bot:
         open_items = store.open_items(self.db)
         current = None
         if draft:
-            current = [ParsedSlipLine(l.ref or "", l.site_code, l.name, l.item_key, l.qty, l.unit, l.vendor, l.rate)
-                       for l in draft.lines]
+            current = [ParsedSlipLine(l.ref or "", l.site_code, l.name, l.item_key, l.qty, l.unit, l.vendor, l.rate,
+                                      action=l.action, remark=l.remark) for l in draft.lines + draft.notes]
             # items already on this draft are still "open" for the parser's purposes
             open_refs = {it["ref"] for it in open_items}
-            for l in draft.lines:
+            for l in draft.lines + draft.notes:
                 if l.ref and l.ref not in open_refs:
                     it = store.item_by_ref(self.db, l.ref)
                     if it:
-                        open_items.append({**it, "by_logistics": it["by_logistics"]})
+                        open_items.append(it)
         if not open_items and not current and not re.search(r"\d", text):
             return self._text(p, "There are no open requirements right now, and that didn't look like a purchase line.\n"
                                  "Send *help* to see what I can do.")
-        vendors = [v.name for v in self.roster.vendors] + sorted(store.known_vendor_names(self.db))
+        vendors = list(dict.fromkeys([v.name for v in self.roster.vendors] + store.recent_vendor_names(self.db)))
         parsed = self.parser.parse_slip(text, open_items, vendors, [(s.code, s.name) for s in self.roster.sites],
                                         store.known_item_keys(self.db), current)
-        lines, problems = self._validate_slip_lines(parsed.lines, draft_id)
+        lines, notes, problems = self._validate_slip_lines(parsed.lines, draft_id)
         problems += [f"Not understood: \"{u}\"" for u in parsed.unclear[:5]]
-        if not lines:
-            msg = "I couldn't build a purchase slip from that."
+        if not lines and not notes:
+            msg = "I couldn't make a purchase list from that."
             if problems:
                 msg += "\n\n" + "\n".join(f"• {x}" for x in problems)
-            msg += "\n\nFormat: _N17 N18 Om Traders 420_ (refs from *list*, vendor, rate per unit)"
+            msg += ("\n\nSay for each item where to buy it, e.g.\n_N17 N18 Om Traders_\n_N19 to N22 Hira Metals_\n"
+                    "_N23 not available_\n_N24 already sent by MV Campbell Bay_\n_N25 not needed_\n"
+                    "A voice note works too. Prices are optional.")
             return self._text(p, msg)
         now = clock.now_iso()
         with self.db.transaction():
@@ -688,28 +712,36 @@ class Bot:
                 self.db.run("UPDATE slips SET raw_text = raw_text || char(10) || '---' || char(10) || ?, updated_at = ? "
                             "WHERE id = ?", (text, now, draft_id))
                 self.db.run("DELETE FROM slip_lines WHERE slip_id = ?", (draft_id,))
-            for n, l in enumerate(lines, start=1):
+            # Purchase lines are numbered 1..n: the approver refers to them ("3 nahi"). Notes carry no number.
+            for n, l in enumerate(lines + notes, start=1):
                 self.db.run(
                     "INSERT INTO slip_lines(slip_id, line_no, site_code, req_item_id, name, item_key, qty, unit, vendor, rate, "
-                    "amount, requested_qty, last_rate, last_rate_date, last_vendor, flags) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (draft_id, n, l["site_code"], l["req_item_id"], l["name"], l["item_key"], l["qty"], l["unit"],
-                     l["vendor"], l["rate"], l["amount"], l["requested_qty"], l["last_rate"], l["last_rate_date"],
-                     l["last_vendor"], l["flags"]),
+                    "amount, requested_qty, last_rate, last_rate_date, last_vendor, last_rate_name, flags, action, remark) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (draft_id, n if l["action"] == BUY else 0, l["site_code"], l["req_item_id"], l["name"], l["item_key"],
+                     l["qty"], l["unit"], l["vendor"], l["rate"], l["amount"], l["requested_qty"], l["last_rate"],
+                     l["last_rate_date"], l["last_vendor"], l["last_rate_name"], l["flags"], l["action"], l["remark"]),
                 )
         slip = store.load_slip(self.db, draft_id)
-        self.db.audit(p.phone, "slip_draft", slip.slip_no, lines=len(slip.lines), total=slip.total)
+        self.db.audit(p.phone, "slip_draft", slip.slip_no, lines=len(slip.lines), notes=len(slip.notes), est=slip.total)
         body = render.slip_text(slip, self.roster, "draft")
         if parsed.note:
             body = f"_{parsed.note}_\n\n" + body
         if problems:
             body += "\n\n❓ " + "\n❓ ".join(problems)
         self._text(p, body, kind="slip", entity=f"slip:{slip.id}:{slip.version}")
-        self._buttons(p, render.slip_short(slip) + "\n\nSend more lines or changes, or send it for approval.",
-                      [(f"SL_SEND:{slip.id}", "📤 Send for approval"), (f"SL_EDIT:{slip.id}", "✏️ Change"),
+        send = "📤 Send for approval" if slip.lines else "📤 Record"
+        hint = ("Send more lines or changes, or send it for approval." if slip.lines else
+                "Nothing here needs approval. Tap Record to update the sites, or send more lines.")
+        self._buttons(p, render.slip_short(slip) + "\n\n" + hint,
+                      [(f"SL_SEND:{slip.id}", send), (f"SL_EDIT:{slip.id}", "✏️ Change"),
                        (f"SL_X:{slip.id}", "🗑 Discard")], kind="slip", entity=f"slip:{slip.id}:{slip.version}")
 
-    def _validate_slip_lines(self, parsed: list[ParsedSlipLine], slip_id: int | None) -> tuple[list[dict], list[str]]:
+    def _validate_slip_lines(self, parsed: list[ParsedSlipLine],
+                             slip_id: int | None) -> tuple[list[dict], list[dict], list[str]]:
+        """Check the plan. Returns (purchase lines, notes, problems)."""
         out: list[dict] = []
+        notes: list[dict] = []
         problems: list[str] = []
         seen_refs: set[str] = set()
         known_vendors = store.known_vendor_names(self.db)
@@ -726,6 +758,20 @@ class Bot:
                     problems.append(f"{pl.ref} appears twice — kept the first")
                     continue
                 seen_refs.add(pl.ref)
+            action = pl.action if pl.action in (BUY, PENDING_STOCK, SENT, DROP) else BUY
+            if action != BUY:
+                if not item:
+                    problems.append(f"\"{pl.name}\" isn't an open requirement, so it can't be marked "
+                                    f"{render.NOTE_WORDS[action]}")
+                    continue
+                notes.append({
+                    "site_code": item["site_code"], "req_item_id": item["id"], "name": item["name"],
+                    "item_key": item["item_key"], "qty": item["qty"], "unit": item["unit"], "vendor": "", "rate": 0,
+                    "amount": 0, "requested_qty": item["qty"], "last_rate": None, "last_rate_date": None,
+                    "last_vendor": None, "last_rate_name": None, "flags": "[]", "action": action,
+                    "remark": pl.remark.strip(),
+                })
+                continue
             site_code = item["site_code"] if item else pl.site_code
             if not self.roster.site(site_code):
                 problems.append(f"Which site is \"{pl.name}\" for? Add the site name, e.g. \"{pl.name} Nicobar ...\"")
@@ -737,46 +783,88 @@ class Bot:
             if q <= 0:
                 problems.append(f"Quantity missing for \"{name}\"")
                 continue
-            rate = pl.rate if pl.rate > 0 else (pl.lump_sum / q if pl.lump_sum > 0 else 0)
-            if rate <= 0:
-                problems.append(f"Rate missing for \"{name}\"")
-                continue
             if not pl.vendor.strip():
-                problems.append(f"Vendor missing for \"{name}\"")
+                problems.append(f"Which shop for \"{name}\"? e.g. \"{item['ref'] if item else name} Om Traders\"")
                 continue
+            rate = pl.rate if pl.rate > 0 else (pl.lump_sum / q if pl.lump_sum > 0 else 0)
             vendor_match = self.roster.match_vendor(pl.vendor)
-            vendor = vendor_match.name if vendor_match else pl.vendor.strip().title()
-            flags: list[Flag] = []
-            last = store.last_approved_rate(self.db, key, unit, exclude_slip=slip_id)
-            if last and rate > last["rate"] * (1 + self.s.price_alert_pct / 100):
-                pct = (rate / last["rate"] - 1) * 100
-                flags.append(Flag("PRICE_UP", f"Rate {inr(rate)} is {pct:.1f}% above last {inr(last['rate'])} "
-                                              f"({last['vendor']}, {clock.fmt(last['decided_at'], with_time=False)})"))
-            requested = item["qty"] if item else None
-            if item and unit == norm_unit(item["unit"]) and q > item["qty"] + 1e-9:
-                flags.append(Flag("QTY_OVER", f"Buying {qty(q)} {unit}; site asked for {qty(item['qty'])}"))
-            if not item:
-                flags.append(Flag("NOT_REQUESTED", "Not requested by any site engineer"))
-            if not vendor_match and vendor.lower() not in known_vendors:
-                flags.append(Flag("NEW_VENDOR", f"New vendor \"{vendor}\" — not on the approved vendor list"))
-            recent = store.recent_purchase(self.db, key, site_code, self.s.recent_purchase_days, exclude_slip=slip_id)
-            if recent:
-                flags.append(Flag("RECENT_PURCHASE", f"Already bought {qty(recent['qty'])} {recent['unit']} for "
-                                                     f"{self.roster.site_name(site_code)} on "
-                                                     f"{clock.fmt(recent['decided_at'], with_time=False)} ({recent['slip_no']})"))
-            if item and item["by_logistics"]:
-                flags.append(Flag("ENTERED_BY_LOGISTICS", "Requirement was entered by logistics, not by the site engineer"))
+            vendor = vendor_match.name if vendor_match else pl.vendor.strip()
             out.append({
                 "site_code": site_code, "req_item_id": item["id"] if item else None, "name": name, "item_key": key,
                 "qty": q, "unit": unit, "vendor": vendor, "rate": round(rate, 2), "amount": round(q * rate, 2),
-                "requested_qty": requested, "last_rate": last["rate"] if last else None,
-                "last_rate_date": last["decided_at"] if last else None, "last_vendor": last["vendor"] if last else None,
-                "flags": json.dumps([f.to_dict() for f in flags], ensure_ascii=False),
+                "requested_qty": item["qty"] if item else None, "action": BUY, "remark": pl.remark.strip(),
+                "_item": item, "_known_vendor": bool(vendor_match) or vendor.lower() in known_vendors,
             })
-        # group lines by site so the slip reads site by site
+        self._attach_last_rates(out, slip_id)
+        for l in out:
+            item = l.pop("_item")
+            flags: list[Flag] = []
+            if l["rate"] > 0 and l["last_rate"] and l["rate"] > l["last_rate"] * (1 + self.s.price_alert_pct / 100):
+                pct = (l["rate"] / l["last_rate"] - 1) * 100
+                flags.append(Flag("PRICE_UP", f"Rate {inr(l['rate'])} is {pct:.1f}% above last {inr(l['last_rate'])} "
+                                              f"({l['last_vendor']}, {clock.fmt(l['last_rate_date'], with_time=False)})"))
+            if item and l["unit"] == norm_unit(item["unit"]) and l["qty"] > item["qty"] + 1e-9:
+                flags.append(Flag("QTY_OVER", f"Buying {qty(l['qty'])} {l['unit']}; site asked for {qty(item['qty'])}"))
+            if not item:
+                flags.append(Flag("NOT_REQUESTED", "Not requested by any site engineer"))
+            if not l.pop("_known_vendor"):
+                flags.append(Flag("NEW_VENDOR", f"New shop \"{l['vendor']}\" — not bought from before"))
+            recent = store.recent_purchase(self.db, l["item_key"], l["site_code"], self.s.recent_purchase_days,
+                                           exclude_slip=slip_id)
+            if recent:
+                flags.append(Flag("RECENT_PURCHASE", f"Already bought {qty(recent['qty'])} {recent['unit']} for "
+                                                     f"{self.roster.site_name(l['site_code'])} on "
+                                                     f"{clock.fmt(recent['decided_at'], with_time=False)} ({recent['slip_no']})"))
+            if item and item["by_logistics"]:
+                flags.append(Flag("ENTERED_BY_LOGISTICS", "Requirement was entered by logistics, not by the site engineer"))
+            l["flags"] = json.dumps([f.to_dict() for f in flags], ensure_ascii=False)
+        # group lines by site so the list reads site by site
         order = {s.code: i for i, s in enumerate(self.roster.sites)}
         out.sort(key=lambda l: order.get(l["site_code"], 99))
-        return out, problems
+        notes.sort(key=lambda l: order.get(l["site_code"], 99))
+        return out, notes, problems
+
+    def _attach_last_rates(self, lines: list[dict], slip_id: int | None) -> None:
+        """Fill last_rate / last_vendor / last_rate_date / last_rate_name for each purchase line.
+
+        Close name matches are taken directly. For the rest, the closest past items go to the parser to pick
+        the same item (or none); its answer is remembered so the same item isn't asked about again."""
+        book = RateBook(self.db, exclude_slip=slip_id)
+        ask: list[tuple[dict, list]] = []
+        for l in lines:
+            past = book.last(l["item_key"], l["name"], l["unit"])
+            if past is None:
+                cache_key = f"ratematch:{l['item_key']}|{l['unit']}"
+                cached = self.db.kv_get(cache_key)
+                name, _, when = cached.partition("|")
+                if cached and (name != "-" or when >= (clock.now() - timedelta(days=7)).date().isoformat()):
+                    past = book.by_name(name, l["unit"]) if name != "-" else None
+                else:
+                    cands = book.candidates(l["item_key"], l["name"], l["unit"])
+                    if cands:
+                        ask.append((l, cands))
+            l["_past"] = past
+        if ask:
+            try:
+                chosen = self.parser.match_rates([
+                    {"name": l["name"], "unit": l["unit"],
+                     "candidates": [{"name": c.name, "unit": "", "score": c.score} for c in cands]}
+                    for l, cands in ask])
+            except ParseError as e:
+                log.warning("Rate matching failed: %s", e)
+                chosen = None
+            if chosen is not None:
+                today = clock.now().date().isoformat()
+                for i, (l, cands) in enumerate(ask):
+                    pick = cands[chosen[i]] if i in chosen else None
+                    l["_past"] = pick
+                    self.db.kv_set(f"ratematch:{l['item_key']}|{l['unit']}", f"{pick.name if pick else '-'}|{today}")
+        for l in lines:
+            past = l.pop("_past")
+            l["last_rate"] = past.rate if past else None
+            l["last_vendor"] = past.vendor if past else None
+            l["last_rate_date"] = past.date if past else None
+            l["last_rate_name"] = past.name if past else None
 
     def _slip_button(self, p: Person, action: str, slip_id: int) -> None:
         slip = store.load_slip(self.db, slip_id)
@@ -785,7 +873,7 @@ class Bot:
         if slip.status != DRAFT:
             return self._text(p, f"{slip.slip_no} is already {slip.status.lower()}.")
         if action == "SL_EDIT":
-            return self._text(p, "Send the change, e.g. \"N17 rate 410\", \"remove line 3\", \"N20 Hira Metals 58\".")
+            return self._text(p, "Send the change, e.g. \"N17 Hira Metals\", \"N18 not available\", \"remove line 3\".")
         if action == "SL_X":
             self.db.run("UPDATE slips SET status = 'CANCELLED', updated_at = ? WHERE id = ?", (clock.now_iso(), slip_id))
             self.db.audit(p.phone, "slip_discard", slip.slip_no)
@@ -794,6 +882,15 @@ class Bot:
 
     def _submit_slip(self, p: Person, slip: Slip) -> None:
         now = clock.now_iso()
+        if not slip.lines:
+            # Only notes (not available / already sent / not needed): nothing to approve, just record them.
+            with self.db.transaction():
+                self._apply_notes(slip)
+                self.db.run("UPDATE slips SET status = 'CANCELLED', updated_at = ? WHERE id = ?", (now, slip.id))
+            self._close_finished_requisitions(slip)
+            self.db.audit(p.phone, "plan_recorded", slip.slip_no, notes=len(slip.notes))
+            self._tell_sites_about_notes(p, slip)
+            return self._text(p, f"📝 Recorded: {render.notes_summary(slip.notes)}. Nothing needed approval.")
         version = slip.version + (1 if slip.submitted_at else 0)
         with self.db.transaction():
             self.db.run("UPDATE slips SET status = 'PENDING', version = ?, submitted_at = ?, updated_at = ?, "
@@ -801,16 +898,40 @@ class Bot:
             for l in slip.lines:
                 if l.req_item_id:
                     self.db.run("UPDATE req_items SET status = 'IN_SLIP' WHERE id = ?", (l.req_item_id,))
+            self._apply_notes(slip)
+        self._close_finished_requisitions(slip)
         slip = store.load_slip(self.db, slip.id)
         path = Path(self.s.pdf_dir) / f"{slip.slip_no}_v{slip.version}_PENDING.pdf"
         render_slip_pdf(slip, self.roster, path)
         self.db.run("UPDATE slips SET pdf_path = ? WHERE id = ?", (str(path), slip.id))
-        self.db.audit(p.phone, "slip_submit", slip.slip_no, version=slip.version, total=slip.total)
+        self.db.audit(p.phone, "slip_submit", slip.slip_no, version=slip.version, est=slip.total, notes=len(slip.notes))
         enqueue(self.db, "slip", slip.id)
         approvers = self.roster.by_role("approver")
         for a in approvers:
             self._send_approval_card(a, slip, str(path))
-        self._text(p, f"📤 *{slip.slip_no}* ({inr(slip.total)}) sent to {', '.join(a.name for a in approvers)} for approval.")
+        self._tell_sites_about_notes(p, slip)
+        self._text(p, f"📤 *{slip.slip_no}* ({render.n_items(len(slip.lines))}, est. {inr(slip.total)}) sent to "
+                      f"{', '.join(a.name for a in approvers)} for approval.")
+
+    def _apply_notes(self, slip: Slip) -> None:
+        """Not available: stays open with the reason. Already sent / not needed: closed with the reason."""
+        day = clock.fmt(clock.now_iso(), with_time=False)
+        for n in slip.notes:
+            if not n.req_item_id:
+                continue
+            if n.action == PENDING_STOCK:
+                note = f"Not available ({day})" + (f": {n.remark}" if n.remark else "")
+                self.db.run("UPDATE req_items SET status = 'OPEN', note = ? WHERE id = ?", (note, n.req_item_id))
+            else:
+                status = "SENT" if n.action == SENT else "DROPPED"
+                self.db.run("UPDATE req_items SET status = ?, note = ? WHERE id = ?", (status, n.remark, n.req_item_id))
+
+    def _tell_sites_about_notes(self, p: Person, slip: Slip) -> None:
+        for site in dict.fromkeys(n.site_code for n in slip.notes):
+            rows = [render.note_line(n) for n in slip.notes if n.site_code == site]
+            text = f"📝 *{p.name}* on your requirements ({self.roster.site_name(site)}):\n" + "\n".join(rows)
+            for e in self.roster.engineers_for(site):
+                self._notify(e, f"Update on your requirements from {p.name}", lambda e=e, t=text: self._text(e, t))
 
     def _send_approval_card(self, a: Person, slip: Slip, pdf_path: str, prefix: str = "") -> None:
         entity = f"slip:{slip.id}:{slip.version}"
@@ -825,7 +946,8 @@ class Bot:
                            (f"AP_ASK:{slip.id}:{slip.version}", "❓ Ask logistics")],
                           kind="approval", entity=entity)
 
-        self._notify(a, f"Purchase slip {slip.slip_no} ({inr(slip.total)}) is waiting for your approval", send)
+        self._notify(a, f"Purchase list {slip.slip_no} ({render.n_items(len(slip.lines))}, est. {inr(slip.total)}) "
+                        "is waiting for your approval", send)
 
     def _withdraw_slip(self, p: Person, number: int) -> None:
         slip = store.slip_by_number(self.db, number)
@@ -842,6 +964,11 @@ class Bot:
             for l in slip.lines:
                 if l.req_item_id:
                     self.db.run("UPDATE req_items SET status = 'OPEN' WHERE id = ?", (l.req_item_id,))
+            for n in slip.notes:  # applied again when the revised list is sent
+                if n.req_item_id:
+                    self.db.run("UPDATE req_items SET status = 'OPEN', note = '' WHERE id = ?", (n.req_item_id,))
+                    self.db.run("UPDATE requisitions SET status = 'SUBMITTED' WHERE id = "
+                                "(SELECT requisition_id FROM req_items WHERE id = ?)", (n.req_item_id,))
         self.db.audit(p.phone, "slip_withdraw", slip.slip_no)
         for a in self.roster.by_role("approver"):
             self._notify(a, f"{slip.slip_no} withdrawn by {p.name}",
@@ -862,6 +989,181 @@ class Bot:
             extra = f" · delivered {recv}/{appr}" if s.status in (APPROVED, PARTIAL) else ""
             lines.append(f"{icon.get(s.status, '')} {s.slip_no} {s.status.lower()} · {inr(s.total)}{extra}")
         self._text(p, "\n".join(lines))
+
+    # ================================================================ shop bills
+
+    def _recent(self, iso: str, minutes: int) -> bool:
+        return clock.now() - clock.parse(iso) <= timedelta(minutes=minutes)
+
+    def _ask_photo_kind(self, p: Person, content: Content) -> None:
+        mime = content.attachments[0][1] if content.attachments else "image/jpeg"
+        self.db.set_state(p.phone, "PHOTO_KIND", {"path": content.saved_path, "mime": mime, "caption": content.text})
+        self._buttons(p, "📷 Is this a shop's bill, or a requirement list from a site?",
+                      [("PH_BILL", "🧾 Shop bill"), ("PH_REQ", "📋 Requirement list")], kind="photo")
+
+    def _photo_kind_chosen(self, p: Person, is_bill: bool) -> None:
+        state, data = self.db.get_state(p.phone)
+        if state != "PHOTO_KIND" or not Path(data.get("path", "")).exists():
+            return self._text(p, "I don't have that photo any more — please send it again.")
+        self.db.set_state(p.phone, "")
+        content = Content(data["caption"], [(Path(data["path"]).read_bytes(), data["mime"])], "image",
+                          saved_path=data["path"])
+        if is_bill:
+            return self._bill_input(p, content)
+        self._group_requirement(p, content, forwarded=False)
+
+    def _bill_input(self, p: Person, content: Content) -> None:
+        images = list(content.attachments)
+        media = [content.saved_path] if content.saved_path and images else []
+        draft_id = store.draft_bill_id(self.db, p.phone)
+        if draft_id:
+            old = store.load_bill(self.db, draft_id)
+            if images and self._recent(old.created_at, minutes=15) and not BILL_WORDS.search(content.text or ""):
+                # another page of the bill on screen: read all pages together
+                earlier = [Path(m) for m in old.media if Path(m).exists()]
+                images = [(m.read_bytes(), _mime(m)) for m in earlier] + images
+                media = [str(m) for m in earlier] + media
+            self.db.run("UPDATE bills SET status = 'CANCELLED' WHERE id = ?", (draft_id,))
+        challans = store.open_challans(self.db)
+        listing = [{"id": l.id, "name": l.name, "qty": l.qty, "unit": l.unit, "vendor": c.vendor,
+                    "challan_no": c.challan_no} for c in challans for l in c.lines]
+        parsed = self.parser.parse_bill(content.text, images, listing)
+        if not parsed.lines:
+            why = ("\n\nNot readable: " + "; ".join(f"\"{u}\"" for u in parsed.unclear[:3])) if parsed.unclear else ""
+            return self._text(p, "🧾 I couldn't read any items on that bill. Please send a clearer, straight photo in good "
+                                 "light (one photo per page), or type it like:\n_Bill 4521_\n_Cement 50 bag 410_" + why)
+        challan = self._challan_for_bill(parsed, challans)
+        ch_lines = {l.id: l for l in challan.lines} if challan else {}
+        now = clock.now_iso()
+        with self.db.transaction():
+            ref = f"BL-{self.db.next_counter('bill'):04d}"
+            bill_id = self.db.run(
+                "INSERT INTO bills(bill_ref, challan_id, vendor, printed_vendor, vendor_bill_no, bill_date, status, tax_total, "
+                "grand_total, media, unclear, submitted_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (ref, challan.id if challan else None, challan.vendor if challan else parsed.vendor, parsed.vendor,
+                 parsed.bill_no,
+                 parsed.bill_date, "DRAFT", parsed.tax_total, parsed.grand_total, json.dumps(media),
+                 json.dumps(parsed.unclear, ensure_ascii=False), p.phone, now))
+            claimed: dict[int, float] = {}
+            for n, bl in enumerate(parsed.lines, start=1):
+                line = ch_lines.get(bl.slip_line_id)
+                flags = self._bill_line_flags(bl, line, challan, claimed)
+                self.db.run(
+                    "INSERT INTO bill_lines(bill_id, line_no, name, item_key, qty, unit, rate, amount, slip_line_id, flags) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (bill_id, n, bl.name, line.item_key if line else bl.item_key, bl.qty, bl.unit, bl.rate,
+                     bl.amount or round(bl.qty * bl.rate, 2), line.id if line else None,
+                     json.dumps([f.to_dict() for f in flags], ensure_ascii=False)))
+        bill = store.load_bill(self.db, bill_id)
+        self.db.audit(p.phone, "bill_draft", bill.bill_ref, challan=bill.challan_no, total=bill.grand_total)
+        self._text(p, render.bill_text(bill, challan, self._bill_warnings(bill, challan), self.roster), kind="bill",
+                   entity=f"bill:{bill.id}")
+        self._buttons(p, "Is this bill read correctly? If not, send a clearer photo.",
+                      [(f"BL_OK:{bill.id}", "✅ Record bill"), (f"BL_X:{bill.id}", "🗑 Discard")], kind="bill",
+                      entity=f"bill:{bill.id}")
+
+    def _challan_for_bill(self, parsed, challans: list[Challan]) -> Challan | None:
+        """The challan most of the bill's lines belong to; else the only open challan of the shop named on it."""
+        by_line = {l.id: c for c in challans for l in c.lines}
+        votes: dict[int, int] = {}
+        for bl in parsed.lines:
+            c = by_line.get(bl.slip_line_id)
+            if c:
+                votes[c.id] = votes.get(c.id, 0) + 1
+        if votes:
+            best = max(votes, key=lambda cid: votes[cid])
+            return next(c for c in challans if c.id == best)
+        if parsed.vendor:
+            same = [c for c in challans if _same_shop(parsed.vendor, c.vendor)]
+            if len(same) == 1:
+                return same[0]
+        return None
+
+    def _bill_line_flags(self, bl, line, challan: Challan | None, claimed: dict[int, float]) -> list[Flag]:
+        if line is None:
+            where = f"challan {challan.challan_no}" if challan else "any approved challan"
+            return [Flag("NOT_APPROVED", f"Not on {where} — was not approved")]
+        flags: list[Flag] = []
+        already = store.billed_qty(self.db, line.id) + claimed.get(line.id, 0)
+        claimed[line.id] = claimed.get(line.id, 0) + bl.qty
+        if norm_unit(bl.unit) == norm_unit(line.unit) and bl.qty > line.qty - already + 1e-9:
+            extra = f", {qty(already)} already billed" if already else ""
+            flags.append(Flag("QTY_OVER", f"Billed {qty(bl.qty)} {bl.unit}; approved {qty(line.qty)} {line.unit}{extra}"))
+        limit = 1 + self.s.price_alert_pct / 100
+        if line.rate > 0 and bl.rate > line.rate * limit:
+            flags.append(Flag("PRICE_UP", f"Rate {inr(bl.rate)} is above the quoted {inr(line.rate)}"))
+        elif line.last_rate and bl.rate > line.last_rate * limit:
+            pct = (bl.rate / line.last_rate - 1) * 100
+            when = clock.fmt(line.last_rate_date, with_time=False) if line.last_rate_date else "Zoho"
+            flags.append(Flag("PRICE_UP", f"Rate {inr(bl.rate)} is {pct:.0f}% above last {inr(line.last_rate)} "
+                                          f"({line.last_vendor or '-'}, {when})"))
+        return flags
+
+    def _bill_warnings(self, bill, challan: Challan | None) -> list[str]:
+        out: list[str] = []
+        if challan is None:
+            out.append("No approved challan matches this bill — this purchase was not approved")
+        else:
+            if bill.printed_vendor and not _same_shop(bill.printed_vendor, challan.vendor):
+                out.append(f"Bill is from \"{bill.printed_vendor}\" but {challan.challan_no} is for {challan.vendor}")
+            if challan.valid_until and (challan.decided_at or "") and bill.created_at > challan.valid_until:
+                out.append(f"{challan.challan_no} expired on {clock.fmt(challan.valid_until, with_time=False)}")
+        if bill.grand_total:
+            expect = bill.lines_total + bill.tax_total
+            if abs(bill.grand_total - expect) > max(2.0, 0.01 * bill.grand_total):
+                out.append(f"Bill total {inr(bill.grand_total)} doesn't match the lines ({inr(bill.lines_total)}"
+                           + (f" + tax {inr(bill.tax_total)}" if bill.tax_total else "") + ")")
+        out += [f"Couldn't read: \"{u}\"" for u in bill.unclear[:3]]
+        return out
+
+    def _bill_button(self, p: Person, action: str, bill_id: int) -> None:
+        bill = store.load_bill(self.db, bill_id)
+        if bill is None or bill.submitted_by != p.phone:
+            return self._text(p, "That bill isn't yours.")
+        if bill.status != "DRAFT":
+            return self._text(p, f"{bill.bill_ref} is already {bill.status.lower()}.")
+        if action == "BL_X":
+            self.db.run("UPDATE bills SET status = 'CANCELLED' WHERE id = ?", (bill.id,))
+            return self._text(p, f"🗑 {bill.bill_ref} discarded. Send the photo again when ready.")
+        self._record_bill(p, bill)
+
+    def _record_bill(self, p: Person, bill) -> None:
+        now = clock.now_iso()
+        challan = store.load_challan(self.db, bill.challan_id) if bill.challan_id else None
+        with self.db.transaction():
+            self.db.run("UPDATE bills SET status = 'RECORDED', recorded_at = ? WHERE id = ?", (now, bill.id))
+            if challan:
+                done = all(store.billed_qty(self.db, l.id) >= l.qty - 1e-9 for l in challan.lines)
+                self.db.run("UPDATE challans SET status = ?, billed_at = ? WHERE id = ?",
+                            (BILLED if done else PART_BILLED, now, challan.id))
+        ch_lines = {l.id: l for l in challan.lines} if challan else {}
+        day = bill.bill_date or clock.now().date().isoformat()
+        for bl in bill.lines:
+            if bl.rate > 0:
+                line = ch_lines.get(bl.slip_line_id)
+                record_rate(self.db, "bill", f"{bill.bill_ref}#{bl.line_no}", line.name if line else bl.name,
+                            bl.item_key, bl.unit, bl.rate, challan.vendor if challan else bill.vendor, day)
+        bill = store.load_bill(self.db, bill.id)
+        challan = store.load_challan(self.db, challan.id) if challan else None
+        self.db.audit(p.phone, "bill_recorded", bill.bill_ref, challan=bill.challan_no, total=bill.grand_total)
+        enqueue(self.db, "bill", bill.id)
+        text = render.bill_text(bill, challan, self._bill_warnings(bill, challan), self.roster, recorded_by=p.name)
+        office = self.roster.by_role("approver", "accounts")
+        for o in office:
+            def send(o=o):
+                self._text(o, text, kind="bill", entity=f"bill:{bill.id}")
+                for i, m in enumerate(bill.media, start=1):
+                    if Path(m).exists():
+                        page = f" (page {i})" if len(bill.media) > 1 else ""
+                        self._doc(o, m, f"{bill.bill_ref} · {bill.vendor or 'shop'} bill{page}")
+            self._notify(o, f"Shop bill {bill.bill_ref} recorded by {p.name}", send)
+        msg = f"✅ *{bill.bill_ref}* recorded and sent to {', '.join(o.name for o in office) or 'the office'}."
+        if challan and challan.status == PART_BILLED:
+            open_ = [l for l in challan.lines if store.billed_qty(self.db, l.id) < l.qty - 1e-9]
+            msg += f"\n\nStill open on {challan.challan_no}: " + ", ".join(f"{l.name} {qty(l.qty)} {l.unit}" for l in open_)
+        if challan:
+            msg += f"\n\nWhen loaded, send *dispatch {challan.slip_no} <site> <vessel/vehicle>*."
+        self._text(p, msg)
 
     # ================================================================ approver
 
@@ -946,13 +1248,13 @@ class Bot:
         reject = lines - approve
         self.db.set_state(p.phone, "VOICE_CONFIRM" if voice else "PARTIAL_CONFIRM",
                           {"slip_id": slip.id, "version": version, "approve": sorted(approve), "text": text, "ref": ref})
-        amt_ok = sum(l.amount for l in slip.lines if l.line_no in approve)
-        amt_no = sum(l.amount for l in slip.lines if l.line_no in reject)
+        amt_ok = sum(l.est_amount for l in slip.lines if l.line_no in approve)
+        amt_no = sum(l.est_amount for l in slip.lines if l.line_no in reject)
         body = (f"🎙 I heard: \"{text}\"\n\n" if voice else "") + f"*{slip.slip_no}* — please confirm:\n"
         if approve:
-            body += f"✅ Approve line {', '.join(map(str, sorted(approve)))} ({inr(amt_ok)})\n"
+            body += f"✅ Approve line {', '.join(map(str, sorted(approve)))}" + (f" (est. {inr(amt_ok)})" if amt_ok else "") + "\n"
         if reject:
-            body += f"❌ Reject line {', '.join(map(str, sorted(reject)))} ({inr(amt_no)})\n"
+            body += f"❌ Reject line {', '.join(map(str, sorted(reject)))}" + (f" (est. {inr(amt_no)})" if amt_no else "") + "\n"
         self._buttons(p, body, [(f"AP_PYES:{slip.id}:{version}", "✅ Confirm"), (f"AP_PNO:{slip.id}:{version}", "↩️ Cancel")],
                       kind="confirm")
 
@@ -990,11 +1292,55 @@ class Bot:
         path = Path(self.s.pdf_dir) / f"{slip.slip_no}_{status}.pdf"
         render_slip_pdf(slip, self.roster, path, verify_url=self.verify_url(slip) if slip.verify_code else "")
         self.db.run("UPDATE slips SET pdf_path = ? WHERE id = ?", (str(path), slip.id))
+        challans = self._make_challans(slip) if status != REJECTED else []
         self._close_finished_requisitions(slip)
         self.db.audit(p.phone, f"slip_{status.lower()}", slip.slip_no, approved_lines=sorted(approve),
-                      approved_total=slip.approved_total, reply=text, wamid=ref)
+                      approved_est=slip.approved_total, challans=[c.challan_no for c in challans], reply=text, wamid=ref)
         enqueue(self.db, "slip", slip.id)
-        self._announce_decision(p, slip, str(path))
+        self._announce_decision(p, slip, str(path), challans)
+
+    def _make_challans(self, slip: Slip) -> list[Challan]:
+        """One signed challan per shop, listing only that shop's approved items."""
+        groups: dict[str, list] = {}
+        for l in slip.lines:
+            if l.status == "APPROVED":
+                groups.setdefault(l.vendor.strip().lower(), []).append(l)
+        now = clock.now()
+        valid_until = (now + timedelta(days=self.s.challan_valid_days)).isoformat(timespec="seconds")
+        buyer = ", ".join(x.name for x in self.roster.by_role("logistics"))
+        out: list[Challan] = []
+        for n, lines in enumerate(groups.values(), start=1):
+            no = f"{slip.slip_no}-{n}"
+            with self.db.transaction():
+                cid = self.db.run("INSERT INTO challans(challan_no, slip_id, vendor, status, valid_until, created_at) "
+                                  "VALUES (?,?,?,?,?,?)", (no, slip.id, lines[0].vendor, "OPEN", valid_until,
+                                                           now.isoformat(timespec="seconds")))
+                for l in lines:
+                    self.db.run("UPDATE slip_lines SET challan_id = ? WHERE id = ?", (cid, l.id))
+            ch = store.load_challan(self.db, cid)
+            sig = self.signer.sign(canonical(self.challan_payload(ch)))
+            self.db.run("UPDATE challans SET signature = ?, verify_code = ? WHERE id = ?", (sig, verify_code(sig), cid))
+            ch = store.load_challan(self.db, cid)
+            path = Path(self.s.pdf_dir) / f"{no}.pdf"
+            render_challan_pdf(ch, self.roster, path, verify_url=self.verify_url(ch), buyer=buyer)
+            self.db.run("UPDATE challans SET pdf_path = ? WHERE id = ?", (str(path), cid))
+            if self.gsync:
+                enqueue(self.db, "file", f"{path}|Challans/{now.strftime('%Y')}/{now.strftime('%m-%B')}")
+            out.append(store.load_challan(self.db, cid))
+        return out
+
+    def challan_payload(self, ch: Challan) -> dict:
+        return {
+            "company": self.roster.company.name,
+            "challan_no": ch.challan_no,
+            "slip_no": ch.slip_no,
+            "vendor": ch.vendor,
+            "approved_by": ch.decided_by_name,
+            "approved_by_phone": ch.decided_by_phone,
+            "approved_at": ch.decided_at,
+            "valid_until": ch.valid_until,
+            "lines": [{"item": l.name, "qty": l.qty, "unit": l.unit, "site": l.site_code} for l in ch.lines],
+        }
 
     def signed_payload(self, slip: Slip) -> dict:
         return {
@@ -1008,11 +1354,12 @@ class Bot:
             "decision_ref": slip.decision_ref,
             "lines": [{"n": l.line_no, "site": l.site_code, "item": l.name, "qty": l.qty, "unit": l.unit,
                        "vendor": l.vendor, "rate": l.rate, "amount": l.amount, "status": l.status} for l in slip.lines],
-            "approved_total": slip.approved_total,
+            "approved_total": round(sum(l.amount for l in slip.lines if l.status == "APPROVED"), 2),
         }
 
-    def verify_url(self, slip: Slip) -> str:
-        return f"{self.s.public_base_url.rstrip('/')}/verify/{slip.slip_no}?c={slip.verify_code}"
+    def verify_url(self, doc: Slip | Challan) -> str:
+        number = doc.challan_no if isinstance(doc, Challan) else doc.slip_no
+        return f"{self.s.public_base_url.rstrip('/')}/verify/{number}?c={doc.verify_code}"
 
     def _close_finished_requisitions(self, slip: Slip) -> None:
         req_ids = {r["requisition_id"] for r in self.db.q(
@@ -1020,18 +1367,21 @@ class Bot:
             (slip.id,))}
         for rid in req_ids:
             open_left = self.db.one("SELECT COUNT(*) AS n FROM req_items WHERE requisition_id = ? AND status IN ('OPEN','IN_SLIP')", (rid,))
+            # SENT / DROPPED / ORDERED / REJECTED items are finished; the requisition closes when nothing is left.
             if open_left["n"] == 0:
                 self.db.run("UPDATE requisitions SET status = 'CLOSED', updated_at = ? WHERE id = ?", (clock.now_iso(), rid))
             enqueue(self.db, "req", rid)
 
-    def _announce_decision(self, p: Person, slip: Slip, pdf_path: str) -> None:
+    def _announce_decision(self, p: Person, slip: Slip, pdf_path: str, challans: list[Challan] | None = None) -> None:
+        challans = challans or []
         rejected = [l for l in slip.lines if l.status == "REJECTED"]
+        est = f" — est. {inr(slip.approved_total)}" if slip.approved_total else ""
         if slip.status == REJECTED:
             headline = f"❌ *{slip.slip_no} REJECTED* by {p.name}"
         elif slip.status == PARTIAL:
-            headline = f"🟡 *{slip.slip_no} PARTLY APPROVED* by {p.name} — {inr(slip.approved_total)} of {inr(slip.total)}"
+            headline = f"🟡 *{slip.slip_no} PARTLY APPROVED* by {p.name}{est}"
         else:
-            headline = f"✅ *{slip.slip_no} APPROVED* by {p.name} — {inr(slip.approved_total)}"
+            headline = f"✅ *{slip.slip_no} APPROVED* by {p.name}{est}"
         detail = headline
         if slip.decision_text and "(button)" not in slip.decision_text:
             detail += f"\nReply: \"{slip.decision_text}\""
@@ -1040,16 +1390,25 @@ class Bot:
         if slip.verify_code:
             detail += f"\n\nVerification code: *{slip.verify_code}*"
         caption = f"{slip.slip_no} — {slip.status.lower()}" + (f" · code {slip.verify_code}" if slip.verify_code else "")
+        shops = "\n".join(f"🏪 *{c.challan_no}* {c.vendor} — {render.n_items(len(c.lines))}" for c in challans)
 
-        self._text(p, f"Done. {headline}\nThe signed slip has gone to logistics.")
+        self._text(p, f"Done. {headline}\n" + ("Signed challans have gone to logistics, one per shop." if challans
+                                                 else "Logistics has been told."))
         self._doc(p, pdf_path, caption)
         for l in self.roster.by_role("logistics"):
-            msg = detail + ("\n\nBuy only what is approved, from the vendors listed. When loaded, send "
-                            f"*dispatch {slip.slip_no} <site> <vessel/vehicle>*." if slip.status != REJECTED else "")
-            self._notify(l, f"{slip.slip_no} was {slip.status.lower()}", lambda l=l, msg=msg: (
-                self._text(l, msg, kind="decision", entity=f"slip:{slip.id}:{slip.version}"),
-                self._doc(l, pdf_path, caption)))
-        for o in self.roster.by_role("observer") + [a for a in self.roster.by_role("approver") if a.phone != p.phone]:
+            msg = detail
+            if challans:
+                msg += (f"\n\n*Challans* (show each at its shop):\n{shops}\n\nBuy only what is on each challan. "
+                        "After buying, send a 📷 *photo of the shop's bill* — I'll check it against the challan. "
+                        f"When loaded, send *dispatch {slip.slip_no} <site> <vessel/vehicle>*.")
+
+            def send(l=l, msg=msg):
+                self._text(l, msg, kind="decision", entity=f"slip:{slip.id}:{slip.version}")
+                self._doc(l, pdf_path, caption)
+                for c in challans:
+                    self._doc(l, c.pdf_path or "", f"{c.challan_no} · {c.vendor} — show this at the shop")
+            self._notify(l, f"{slip.slip_no} was {slip.status.lower()}", send)
+        for o in self.roster.by_role(*READERS) + [a for a in self.roster.by_role("approver") if a.phone != p.phone]:
             self._notify(o, f"{slip.slip_no} was {slip.status.lower()}", lambda o=o: (
                 self._text(o, detail), self._doc(o, pdf_path, caption)))
         for site in slip.sites():
@@ -1079,11 +1438,11 @@ class Bot:
         self._text(p, sent)
 
     def _show_pending(self, p: Person) -> None:
-        if p.role in ("approver", "observer"):
+        if p.role in ("approver", *READERS):
             pending = store.pending_slips(self.db)
             if not pending:
                 return self._text(p, "✅ Nothing is waiting for approval.")
-            if p.role == "observer":
+            if p.role in READERS:
                 return self._text(p, "⏳ Waiting for approval:\n" + "\n".join(f"• {s.slip_no} — {inr(s.total)}" for s in pending))
             for s in pending:
                 self._send_approval_card(p, s, s.pdf_path or "")
@@ -1315,12 +1674,17 @@ class Bot:
     def _report(self) -> str:
         now = clock.now()
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="seconds")
+        # Value: what the shop billed when a bill is recorded, else the estimate (quoted or last rate).
+        est = "CASE WHEN sl.rate > 0 THEN sl.amount ELSE sl.qty * COALESCE(sl.last_rate, 0) END"
+        billed = ("(SELECT SUM(bl.amount) FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id "
+                  "WHERE bl.slip_line_id = sl.id AND b.status = 'RECORDED')")
         approved = self.db.q(
-            "SELECT sl.site_code, sl.vendor, sl.amount FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
-            "WHERE sl.status = 'APPROVED' AND s.decided_at >= ?", (start,))
+            f"SELECT sl.site_code, sl.vendor, COALESCE({billed}, {est}) AS amount FROM slip_lines sl "
+            "JOIN slips s ON s.id = sl.slip_id WHERE sl.status = 'APPROVED' AND sl.action = 'BUY' AND s.decided_at >= ?",
+            (start,))
         rejected = self.db.one(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(sl.amount), 0) AS a FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
-            "WHERE sl.status = 'REJECTED' AND s.decided_at >= ?", (start,))
+            f"SELECT COUNT(*) AS n, COALESCE(SUM({est}), 0) AS a FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
+            "WHERE sl.status = 'REJECTED' AND sl.action = 'BUY' AND s.decided_at >= ?", (start,))
         n_slips = self.db.one("SELECT COUNT(*) AS n FROM slips WHERE status IN ('APPROVED','PARTIAL') AND decided_at >= ?", (start,))["n"]
         total = sum(r["amount"] for r in approved)
         by_site: dict[str, float] = {}
@@ -1332,15 +1696,23 @@ class Bot:
         undelivered = self.db.one("SELECT COUNT(*) AS n FROM slip_lines WHERE status = 'APPROVED' AND received_qty IS NULL")["n"]
         shorts = self.db.one(
             "SELECT COUNT(*) AS n FROM slip_lines WHERE received_qty IS NOT NULL AND received_qty < qty AND received_at >= ?", (start,))["n"]
-        lines = [f"📊 *{now.strftime('%B %Y')} so far*", f"Approved: *{lakh(total)}* across {n_slips} slip(s)"]
+        lines = [f"📊 *{now.strftime('%B %Y')} so far*", f"Approved: *{lakh(total)}* across {n_slips} list(s)"
+                 + (" _(billed where bills are in, else estimated)_" if total else "")]
         if by_site:
             lines.append("By site: " + " · ".join(f"{self.roster.site_name(k)} {lakh(v)}" for k, v in sorted(by_site.items(), key=lambda x: -x[1])))
         if by_vendor:
             top = sorted(by_vendor.items(), key=lambda x: -x[1])[:5]
             lines.append("Top vendors: " + " · ".join(f"{k} {lakh(v)}" for k, v in top))
+        credit = store.credit_by_vendor(self.db, start)
+        if credit:
+            lines.append("On credit (shop bills recorded): " + " · ".join(f"{v} {lakh(t)} ({n})" for v, t, n in credit[:6]))
+        unbilled = [c for c in store.open_challans(self.db) if c.status == "OPEN"]
+        if unbilled:
+            lines.append(f"Challans not billed yet: {len(unbilled)} (" + ", ".join(c.challan_no for c in unbilled[:5]) + ")")
         if rejected["n"]:
             lines.append(f"Rejected: {lakh(rejected['a'])} ({rejected['n']} line{'s' if rejected['n'] != 1 else ''})")
-        lines.append(f"Waiting for approval: {len(pending)}" + (f" ({lakh(sum(s.total for s in pending))})" if pending else ""))
+        est_pending = sum(s.total for s in pending)
+        lines.append(f"Waiting for approval: {len(pending)}" + (f" (est. {lakh(est_pending)})" if est_pending else ""))
         lines.append(f"Approved but not yet delivered: {undelivered} line(s)")
         in_transit = self.db.one("SELECT COUNT(*) AS n FROM dispatches WHERE status = 'OPEN'")["n"]
         if in_transit:
@@ -1416,7 +1788,7 @@ class Bot:
             decided_today = self.db.one("SELECT COUNT(*) AS n FROM slips WHERE decided_at >= ?", (today,))["n"]
             if decided_today or store.pending_slips(self.db) or sites:
                 body = "🌙 *Daily summary*\n" + (sites + "\n\n" if sites else "") + self._report()
-                for who in self.roster.by_role("approver") + self.roster.by_role("observer"):
+                for who in self.roster.by_role("approver", *READERS):
                     self._notify(who, "Daily purchase summary", lambda who=who: self._text(who, body))
 
     def _site_status(self, now) -> str:
@@ -1450,6 +1822,7 @@ class Bot:
                     age = now - clock.parse(i["submitted_at"])
                     tag = f" ⏰ {age.days}d" if age >= stale else ""
                     tag += " 🔴" if i["urgent"] else ""
+                    tag += f" · ⏳ _{i['note']}_" if i.get("note") else ""
                     lines.append(f"{i['ref']} {i['name']} — {qty(i['qty'])} {i['unit']}{tag}")
         waiting = [l for s in self.roster.sites for l in store.undispatched_lines(self.db, s.code)]
         if waiting:
@@ -1461,7 +1834,10 @@ class Bot:
                 f"{d.dispatch_no} {self.roster.site_name(d.site_code)} ({(now - clock.parse(d.created_at)).days}d)" for d in unconfirmed)]
         pending = store.pending_slips(self.db)
         if pending:
-            lines += ["", "⏳ *Waiting for approval:* " + ", ".join(f"{s.slip_no} {inr(s.total)}" for s in pending)]
+            lines += ["", "⏳ *Waiting for approval:* " + ", ".join(s.slip_no for s in pending)]
+        unbilled = store.open_challans(self.db)
+        if unbilled:
+            lines += ["", "🧾 *Challans without a bill yet:* " + ", ".join(f"{c.challan_no} {c.vendor}" for c in unbilled)]
         return ("☀️ *Today's list*" + "\n".join([""] + lines)) if lines else ""
 
     def _receipt_reminders(self, now) -> None:
@@ -1469,3 +1845,18 @@ class Bot:
         for row in self.db.q("SELECT id FROM dispatches WHERE status = 'OPEN' AND reminded_at IS NULL AND created_at <= ?", (due,)):
             self.db.run("UPDATE dispatches SET reminded_at = ? WHERE id = ?", (now.isoformat(timespec="seconds"), row["id"]))
             self._send_receipt_card(store.load_dispatch(self.db, row["id"]))
+
+
+def _mime(path: Path) -> str:
+    return {".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf"}.get(path.suffix.lower(), "image/jpeg")
+
+
+def _same_shop(a: str, b: str) -> bool:
+    """'Om Traders' / 'OM TRADERS, PORT BLAIR' / 'Ome Trader' are one shop."""
+    from .rates import similarity
+
+    na, nb = norm_key(a), norm_key(b)
+    if not na or not nb:
+        return False
+    first_a, first_b = na.split()[0], nb.split()[0]
+    return na in nb or nb in na or similarity(a, b) >= 0.5 or (len(first_a) >= 3 and first_a[:3] == first_b[:3])
