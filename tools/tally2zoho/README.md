@@ -10,4 +10,5 @@ Notes
 - Tally amounts are signed: negative = debit, positive = credit.
 - GST is charged per line in Zoho (CGST + UTGST, half each, rounded per line). Where Tally's tax or round-off differs, the gap goes into the bill's Adjustment so the bill total always equals Tally's.
 - Discounted lines whose net rate isn't a whole paisa are imported as quantity 1 at the net amount, with the quantity and list rate in the description.
+- Zoho posts bill adjustments to its **Other Expenses** account (Tally: Round Off (P)), and posts UTGST to **Input SGST**.
 - Never commit Tally exports or generated CSVs: they are the company's books.
