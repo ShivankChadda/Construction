@@ -83,6 +83,10 @@ def main(out, mpath):
     for k in list(zl):
         if k.startswith('@'): zl[k[1:]] += zl.pop(k)
 
+    # Zoho account names are case-insensitive ("SUSPENSE A/C" ledger lives in the "Suspense A/c" account).
+    canon = {k.lower(): k for k in tally}
+    for k in list(zl):
+        if k not in tally and k.lower() in canon: zl[canon[k.lower()]] += zl.pop(k)
     out_rows = []
     allk = sorted(set(tally) | set(zl), key=lambda n: (L.get(n, {}).get('parent', 'zz'), n))
     diff_total = D(0)

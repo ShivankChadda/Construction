@@ -72,6 +72,8 @@ class Books:
         name = ledger
         if ledger in TAX_IN or ledger in TAX_OUT or ledger in ('CGST', 'UTGST'):
             name = ledger + GST_JV_SUFFIX
+        elif ' '.join(ledger.split()).lower() == ' '.join(self.parent(ledger).split()).lower():
+            name = self.group_name(self.parent(ledger))   # Zoho names are case-insensitive: "SUSPENSE A/C" is the group "Suspense A/c"
         self._register(name, ledger)
         return name
 
@@ -89,7 +91,7 @@ class Books:
         prim = self.prim(ledger)
         # Two levels of grouping at most: Tally primary group > immediate group > ledger.
         chain = [prim] if grp == prim else [prim, grp]
-        if name == grp:   # ledger has the same name as its group (e.g. "Bank Charges", "Salary Payable"): post to the group account
+        if name == self.group_name(grp):   # ledger has the same name as its group (e.g. "Bank Charges", "Salary Payable"): post to the group account
             chain = chain[:-1]
         if name.lower() in self.zoho and name.lower() == 'purchase account':
             chain = []
