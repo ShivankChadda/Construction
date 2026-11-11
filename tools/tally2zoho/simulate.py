@@ -63,7 +63,7 @@ def main(out, mpath):
         a = D(r['Credit'] or 0) - D(r['Debit'] or 0)
         acct = r['Account']
         z[(acct, r['Contact Name']) if acct in ('Accounts Payable', 'Accounts Receivable') else acct] += a
-        nj.add(r['Journal Number'])
+        nj.add((r['Journal Number Prefix'], r['Journal Number Suffix']))
     plan = json.load(open(os.path.join(out, 'plan.json')))
     L = {nm(n): l for n, l in json.load(open(mpath))['ledgers'].items()}
     tally = collections.Counter()

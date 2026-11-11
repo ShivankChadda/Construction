@@ -280,7 +280,7 @@ def journal_rows(b, v, number):
     for n, a in net.items():
         if not a: continue
         k = b.kind(n)
-        rows.append({'Journal Date': zdate(v['date']), 'Journal Number': number, 'Reference Number': tag(v)[:50],
+        rows.append({'Journal Date': zdate(v['date']), 'Journal Number Prefix': number[0], 'Journal Number Suffix': number[1], 'Reference Number': tag(v)[:50],
                      'Notes': (tag(v) + (' - ' + v['narration'] if v['narration'] else ''))[:500], 'Journal Type': 'both', 'Currency': 'INR',
                      'Account': b.zname(n), 'Description': n if k in ('AP', 'AR') else '', 'Contact Name': n if k in ('AP', 'AR') else '',
                      'Debit': money(-a) if a < 0 else '', 'Credit': money(a) if a > 0 else ''})
@@ -326,7 +326,9 @@ def main(vpath, mpath, coapath, out, start, end):
             e = expense_rows(b, v)
             if e: expenses += e; rec = 'expense'
         if not rec:
-            num = f"{VTYPE_SHORT[t]}-{v['date'][2:6]}-{v['vouchernumber']}"
+            # Zoho wants a numeric suffix: prefix = Tally type (+ any text part of the voucher no.), suffix = its trailing digits.
+            m = re.match(r'^(.*?)([0-9]+)$', v['vouchernumber'].strip())
+            num = (f"{VTYPE_SHORT[t]}-{m.group(1)}", m.group(2)) if m else (f"{VTYPE_SHORT[t]}-{v['vouchernumber']}-", '1')
             journals[v['date'][:6]] += journal_rows(b, v, num); rec = 'journal'
         plan.append(dict(vch=tag(v), date=v['date'], as_=rec, why=why or ''))
 
