@@ -9,3 +9,4 @@ config/roster.yaml
 *.key
 google_token.json
 service_account.json
+*.egg-info/
