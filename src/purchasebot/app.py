@@ -128,14 +128,23 @@ server and in {who}'s Google Drive.</p>
 <h2>Your choices</h2><p>Staff can ask {who} to see or correct their records.{reach}</p></main></body></html>"""
 
 
+def _line_verdict(l) -> str:
+    if l.status == "MOVED":
+        return f"Approved; later moved to {escape(l.replaced_by_slip_no or 'another list')} (shop didn't have it)"
+    if l.status == "CANCELLED":
+        return "Approved; later taken off (not available / not needed)"
+    return "Approved" if l.status == "APPROVED" else "Not approved"
+
+
 def _verify_page(slip, company: str, valid: bool, site_name) -> str:
     rows = "".join(
         f"<tr class='{'no' if l.status != 'APPROVED' else ''}'><td>{l.line_no}</td><td>{escape(l.name)}"
         f"<small>{escape(site_name(l.site_code))} · {escape(l.vendor)}</small></td>"
         f"<td>{qty(l.qty)} {escape(l.unit)}</td><td>{inr(l.rate)}</td><td>{inr(l.amount)}</td>"
-        f"<td>{'Approved' if l.status == 'APPROVED' else 'Not approved'}</td></tr>"
+        f"<td>{_line_verdict(l)}</td></tr>"
         for l in slip.lines
     )
+    signed_total = sum(l.amount for l in slip.lines if l.status in ("APPROVED", "MOVED", "CANCELLED"))
     verdict = ("<div class='ok'>✔ Genuine — matches the approved record</div>" if valid else
                "<div class='bad'>✘ Signature check FAILED — do not accept this slip</div>")
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -159,7 +168,7 @@ td small{{display:block;color:var(--muted)}} tr.no td{{color:var(--muted);text-d
 Prepared by {escape(slip.prepared_by_name)} · Verification code {escape(slip.verify_code or '')}</p>
 <div class="wrap"><table><thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr></thead>
 <tbody>{rows}</tbody></table></div>
-<p><b>Approved total: {inr(slip.approved_total)}</b></p>
+<p><b>Approved total: {inr(signed_total)}</b></p>
 <p class="muted">If the paper or PDF you hold differs from this page in any item, quantity, rate or vendor, it has been altered.</p>
 </main></body></html>"""
 
@@ -180,11 +189,16 @@ def _challan_page(ch, company: str, valid: bool, billed: dict[int, float], site_
     else:
         verdict = "<div class='ok'>✔ Genuine and valid — you may supply the items below on credit</div>"
     rows = "".join(
+        f"<tr class='no'><td>{i}</td><td>{escape(l.name)}<small>{escape(site_name(l.site_code))}</small></td>"
+        f"<td>{qty(l.qty)} {escape(l.unit)}</td><td colspan='2'><b>Cancelled — do not supply</b></td></tr>"
+        if l.status in ("MOVED", "CANCELLED") else
         f"<tr><td>{i}</td><td>{escape(l.name)}<small>{escape(site_name(l.site_code))}</small></td>"
         f"<td>{qty(l.qty)} {escape(l.unit)}</td><td>{qty(billed.get(l.id, 0))}</td>"
         f"<td>{qty(max(0.0, l.qty - billed.get(l.id, 0)))}</td></tr>"
         for i, l in enumerate(ch.lines, start=1)
     )
+    if ch.status != "CANCELLED" and any(l.status in ("MOVED", "CANCELLED") for l in ch.lines):
+        verdict += "<p><b>Some items were cancelled after approval — supply only the items still open.</b></p>"
     valid_line = f" · Valid until {clock.fmt(ch.valid_until, with_time=False)}" if ch.valid_until else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Verify {escape(ch.challan_no)}</title>
@@ -198,6 +212,7 @@ h1{{font-size:20px;margin:0 0 4px}} .muted{{color:var(--muted)}}
 table{{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}}
 th,td{{text-align:left;padding:8px 6px;border-bottom:1px solid var(--rule);vertical-align:top}}
 td small{{display:block;color:var(--muted)}} .wrap{{overflow-x:auto}}
+tr.no td:nth-child(-n+3){{color:var(--muted);text-decoration:line-through}}
 </style></head><body><main>
 <div class="muted">{escape(company)}</div>
 <h1>Purchase challan {escape(ch.challan_no)}</h1>

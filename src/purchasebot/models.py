@@ -26,6 +26,12 @@ SENT = "SENT"               # already sent to site earlier; closed without a pur
 DROP = "DROP"               # not needed; closed
 NOTE_ACTIONS = (PENDING_STOCK, SENT, DROP)
 
+# What happens to an approved line when the shop turns out not to have it. The line keeps the approval it
+# was signed with (the signature still verifies), but it is no longer to be bought where it was approved.
+MOVED = "MOVED"            # re-approved from another shop, on a later list
+LINE_CANCELLED = "CANCELLED"  # not available anywhere / not needed / already sent, after approval
+AFTER_APPROVAL = (MOVED, LINE_CANCELLED)
+
 # Challan statuses
 OPEN = "OPEN"
 PART_BILLED = "PART_BILLED"
@@ -106,6 +112,12 @@ class SlipLine:
     remark: str = ""
     last_rate_name: str | None = None
     challan_id: int | None = None
+    replaces_line_id: int | None = None   # an approved line on an earlier list that this one changes
+    replaced_by: int | None = None        # the later line that moved or cancelled this approved one
+    replaces_slip_no: str | None = None
+    replaces_vendor: str | None = None
+    replaces_challan_no: str | None = None
+    replaced_by_slip_no: str | None = None
 
     def flag_codes(self) -> set[str]:
         return {f.code for f in self.flags}
@@ -187,6 +199,12 @@ class Slip:
 
     def sites(self) -> list[str]:
         return list(OrderedDict.fromkeys(l.site_code for l in self.lines))
+
+    def amends(self) -> list[str]:
+        """Earlier approved challans whose items this list buys from another shop: needs approval again.
+        (Taking an approved item off as not available / not needed is a note, and needs none.)"""
+        return list(OrderedDict.fromkeys(l.replaces_challan_no or l.replaces_slip_no
+                                         for l in self.lines if l.replaces_slip_no))
 
     def lines_for_site(self, site_code: str) -> list[SlipLine]:
         return [l for l in self.lines if l.site_code == site_code]

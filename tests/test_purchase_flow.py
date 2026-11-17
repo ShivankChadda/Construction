@@ -311,7 +311,7 @@ def test_old_database_gets_new_columns(tmp_path):
     con.close()
     db = DB(path)
     cols = {r[1] for r in db.conn.execute("PRAGMA table_info(slip_lines)")}
-    assert {"action", "remark", "last_rate_name", "challan_id"} <= cols
+    assert {"action", "remark", "last_rate_name", "challan_id", "replaces_line_id", "replaced_by"} <= cols
     assert "note" in {r[1] for r in db.conn.execute("PRAGMA table_info(req_items)")}
 
 

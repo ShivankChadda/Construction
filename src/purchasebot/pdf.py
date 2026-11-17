@@ -197,6 +197,9 @@ def render_slip_pdf(slip: Slip, roster: Roster, out_path: str | Path, verify_url
     story.append(_p(
         f"Prepared by <b>{_e(slip.prepared_by_name)}</b> (Logistics)  ·  Submitted {clock.fmt(when)}  ·  "
         f"Sites: <b>{_e(site_names)}</b>", "body"))
+    if slip.amends():
+        story.append(_p(f"<b>Change to approved list {_e(', '.join(slip.amends()))}</b>: items already approved for "
+                        "another shop (or quantity). Once approved, they come off the earlier shop's challan.", "body"))
 
     # ---- lines grouped by site ----
     col_w = [8 * mm, 54 * mm, 16 * mm, 27 * mm, 31 * mm, 19 * mm, 25 * mm]
@@ -225,7 +228,9 @@ def render_slip_pdf(slip: Slip, roster: Roster, out_path: str | Path, verify_url
             sub = f"<br/><font size=6.5 color='#6B7280'>{' · '.join(detail)}</font>" if detail else ""
             flags = "".join(f"<br/><font size=6.5 color='#B45309'>[!] {_e(f.text)}</font>" for f in l.flags)
             status_text = {"APPROVED": "<font color='#15803D'><b>APPROVED</b></font>",
-                           "REJECTED": "<font color='#B91C1C'><b>NOT APPROVED</b></font>"}.get(l.status, "Pending")
+                           "REJECTED": "<font color='#B91C1C'><b>NOT APPROVED</b></font>",
+                           "MOVED": "<font color='#6B7280'><b>MOVED</b></font>",
+                           "CANCELLED": "<font color='#6B7280'><b>CANCELLED</b></font>"}.get(l.status, "Pending")
             if l.last_rate:
                 when_ = clock.fmt(l.last_rate_date, with_time=False) if l.last_rate_date else "Zoho item rate"
                 last = f"{rs(l.last_rate)}<br/><font size=6.5 color='#6B7280'>{_e(l.last_vendor or '')} {when_}"
@@ -271,7 +276,9 @@ def render_slip_pdf(slip: Slip, roster: Roster, out_path: str | Path, verify_url
                  SENT: "<b>Already sent</b> - not purchased", DROP: "<b>Not needed</b> - closed"}
         nrows = [[_p("<b>Ref</b>"), _p("<b>Item</b>"), _p("<b>Site</b>"), _p("<b>Status</b>"), _p("<b>Remark</b>")]]
         for n in slip.notes:
-            nrows.append([_p(_e(n.ref or "")), _p(f"{_e(n.name)} - {qty(n.qty)} {_e(n.unit)}"),
+            off = (f"<br/><font size=6.5 color='#6B7280'>taken off {_e(n.replaces_challan_no or n.replaces_slip_no)} "
+                   f"({_e(n.replaces_vendor)})</font>" if n.replaces_slip_no else "")
+            nrows.append([_p(_e(n.ref or "")), _p(f"{_e(n.name)} - {qty(n.qty)} {_e(n.unit)}{off}"),
                           _p(_e(roster.site_name(n.site_code))), _p(label[n.action]), _p(_e(n.remark) or "-")])
         nt = Table(nrows, colWidths=[14 * mm, 66 * mm, 24 * mm, 36 * mm, 40 * mm], repeatRows=1)
         nt.setStyle(TableStyle([

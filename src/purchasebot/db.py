@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS slip_lines (
   last_rate_date TEXT,
   last_vendor TEXT,
   flags TEXT NOT NULL DEFAULT '[]',
-  status TEXT NOT NULL DEFAULT 'PENDING',  -- PENDING, APPROVED, REJECTED
+  status TEXT NOT NULL DEFAULT 'PENDING',  -- PENDING, APPROVED, REJECTED; MOVED / CANCELLED after approval
   dispatched_at TEXT,
   dispatch_note TEXT,
   received_qty REAL,
@@ -105,7 +105,9 @@ CREATE TABLE IF NOT EXISTS slip_lines (
   action TEXT NOT NULL DEFAULT 'BUY',      -- BUY; or PENDING / SENT / DROP: noted on the list, not for approval
   remark TEXT NOT NULL DEFAULT '',
   last_rate_name TEXT,                     -- the past item the last rate was matched to
-  challan_id INTEGER REFERENCES challans(id)
+  challan_id INTEGER REFERENCES challans(id),
+  replaces_line_id INTEGER REFERENCES slip_lines(id),  -- approved line on an earlier list this changes
+  replaced_by INTEGER REFERENCES slip_lines(id)        -- set when this approved line was moved or cancelled
 );
 
 -- One signed purchase order per shop, made when a slip is approved. Carries no prices.
@@ -287,7 +289,8 @@ class DB:
     _ADDED_COLUMNS = {
         "req_items": [("note", "TEXT NOT NULL DEFAULT ''")],
         "slip_lines": [("action", "TEXT NOT NULL DEFAULT 'BUY'"), ("remark", "TEXT NOT NULL DEFAULT ''"),
-                       ("last_rate_name", "TEXT"), ("challan_id", "INTEGER")],
+                       ("last_rate_name", "TEXT"), ("challan_id", "INTEGER"), ("replaces_line_id", "INTEGER"),
+                       ("replaced_by", "INTEGER")],
     }
 
     def _migrate(self) -> None:

@@ -197,7 +197,7 @@ class ScriptedSlipParser(RuleParser):
     def __init__(self, lines):
         self.lines = lines
 
-    def parse_slip(self, text, open_items, vendors, sites, known_items, current=None):
+    def parse_slip(self, text, open_items, vendors, sites, known_items, current=None, approved=None):
         return SlipParse(lines=self.lines)
 
 

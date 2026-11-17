@@ -37,6 +37,7 @@ See [`docs/samples/`](docs/samples) for real output from the scripted demo: a pe
 | Inflated rates | The approver sees the last rate paid for every item (bills + Zoho Books), and each shop bill is checked: **"Rate ₹450 is 12% above last ₹400 (Om Traders, 01 Sep)"** |
 | Billing for things not approved | Each shop bill is matched to its signed challan: **"Not on challan PS-0042-1 — was not approved"**, **"Billed 60 bag; approved 50 bag"** |
 | Supplying against an old or copied approval | Challans are per shop, signed, valid 7 days, and show **"already billed"** on the QR page once billed |
+| "Shop didn't have it, so I bought it elsewhere" | Changing the shop after approval needs approval again: a small list marked **"Change to approved list PS-0042-1"**. Once approved, the item comes off the old shop's challan (its QR page shows **"Cancelled — do not supply"**). A bill from the old shop for it is flagged |
 | New or friendly vendors | Vendors not on the approved list are flagged **"New vendor"** |
 | Buying the same thing twice | **"Already bought 40 bag for Nicobar on 10 Oct (PS-0001)"** |
 | Requirements invented at the office | Requirements Abbas types on a site's behalf are marked and flagged |
@@ -84,7 +85,7 @@ Open [`docs/trial.html`](docs/trial.html) in a browser for a guided, clickable t
 pip install -e '.[dev]'
 purchasebot demo            # scripted run: 3 sites → slip → question → partial approval → delivery → stock
 purchasebot simulate        # chat as anyone:  @abbas fwd: Diglipur site requirements -- welding goggles 10 nos   @father ^ yes
-pytest                      # 97 tests
+pytest                      # run the tests
 ```
 
 Without `ANTHROPIC_API_KEY`, the demo and simulator use a simple offline parser that understands lines like *"cement 50 bags"*. With the key, Claude reads Hinglish, abbreviations, voice transcripts and photos.

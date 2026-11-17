@@ -44,9 +44,13 @@ def load_slip(db: DB, slip_id: int) -> Slip | None:
     if not s:
         return None
     rows = db.q(
-        "SELECT sl.*, ri.ref AS ref, r.req_no AS req_no FROM slip_lines sl "
+        "SELECT sl.*, ri.ref AS ref, r.req_no AS req_no, os.slip_no AS replaces_slip_no, ol.vendor AS replaces_vendor, "
+        "oc.challan_no AS replaces_challan_no, ns.slip_no AS replaced_by_slip_no FROM slip_lines sl "
         "LEFT JOIN req_items ri ON ri.id = sl.req_item_id "
         "LEFT JOIN requisitions r ON r.id = ri.requisition_id "
+        "LEFT JOIN slip_lines ol ON ol.id = sl.replaces_line_id LEFT JOIN slips os ON os.id = ol.slip_id "
+        "LEFT JOIN challans oc ON oc.id = ol.challan_id "
+        "LEFT JOIN slip_lines nl ON nl.id = sl.replaced_by LEFT JOIN slips ns ON ns.id = nl.slip_id "
         "WHERE sl.slip_id = ? ORDER BY sl.line_no",
         (slip_id,),
     )
@@ -63,6 +67,7 @@ def load_slip(db: DB, slip_id: int) -> Slip | None:
 
 
 def _slip_line(l) -> SlipLine:
+    cols = l.keys()  # the slip query adds the linked lists' numbers; the challan query doesn't
     return SlipLine(
         id=l["id"], line_no=l["line_no"], site_code=l["site_code"], req_item_id=l["req_item_id"],
         ref=l["ref"], req_no=l["req_no"], name=l["name"], item_key=l["item_key"], qty=l["qty"],
@@ -71,8 +76,12 @@ def _slip_line(l) -> SlipLine:
         last_vendor=l["last_vendor"], flags=[Flag(**f) for f in json.loads(l["flags"])],
         status=l["status"], dispatched_at=l["dispatched_at"], dispatch_note=l["dispatch_note"],
         received_qty=l["received_qty"], received_at=l["received_at"], action=l["action"], remark=l["remark"],
-        last_rate_name=l["last_rate_name"], challan_id=l["challan_id"],
+        last_rate_name=l["last_rate_name"], challan_id=l["challan_id"], replaces_line_id=l["replaces_line_id"],
+        replaced_by=l["replaced_by"], **{k: l[k] for k in _LINK_COLS if k in cols},
     )
+
+
+_LINK_COLS = ("replaces_slip_no", "replaces_vendor", "replaces_challan_no", "replaced_by_slip_no")
 
 
 def slip_by_number(db: DB, number: int) -> Slip | None:
@@ -146,16 +155,61 @@ def recent_vendor_names(db: DB, limit: int = 60) -> list[str]:
     return [r["vendor"] for r in rows]
 
 
-def recent_purchase(db: DB, item_key: str, site_code: str, days: int, exclude_slip: int | None = None) -> dict | None:
+def recent_purchase(db: DB, item_key: str, site_code: str, days: int, exclude_slip: int | None = None,
+                    exclude_line: int | None = None) -> dict | None:
     since = (clock.now() - timedelta(days=days)).isoformat(timespec="seconds")
     r = db.one(
         "SELECT sl.qty, sl.unit, s.slip_no, s.decided_at FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
         "WHERE sl.item_key = ? AND sl.site_code = ? AND sl.status = 'APPROVED' AND sl.action = 'BUY' "
-        "AND s.decided_at >= ? AND s.id != ? "
+        "AND s.decided_at >= ? AND s.id != ? AND sl.id != ? "
         "ORDER BY s.decided_at DESC LIMIT 1",
-        (item_key, site_code, since, exclude_slip or -1),
+        (item_key, site_code, since, exclude_slip or -1, exclude_line or -1),
     )
     return dict(r) if r else None
+
+
+# ---- approved lines that can still change (the shop didn't have it) ----
+
+_BOUGHT = ("(EXISTS (SELECT 1 FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id "
+           "WHERE bl.slip_line_id = sl.id AND b.status = 'RECORDED') "
+           "OR EXISTS (SELECT 1 FROM dispatch_items di WHERE di.slip_line_id = sl.id) OR sl.received_qty IS NOT NULL)")
+_APPROVED_LINE = ("SELECT sl.id, sl.slip_id, sl.req_item_id, sl.site_code, sl.name, sl.item_key, sl.qty, sl.unit, "
+                  "sl.vendor, sl.rate, sl.challan_id, ri.ref, s.slip_no, s.decided_at, c.challan_no, "
+                  f"{_BOUGHT} AS bought FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id "
+                  "JOIN req_items ri ON ri.id = sl.req_item_id LEFT JOIN challans c ON c.id = sl.challan_id "
+                  "WHERE sl.status = 'APPROVED' AND sl.action = 'BUY' AND s.status IN ('APPROVED','PARTIAL') ")
+
+
+def approved_line(db: DB, req_item_id: int) -> dict | None:
+    """The approved purchase line for a requirement, with `bought` set once it is billed or sent."""
+    r = db.one(_APPROVED_LINE + "AND sl.req_item_id = ? ORDER BY sl.id DESC LIMIT 1", (req_item_id,))
+    return dict(r) if r else None
+
+
+def approved_unbought(db: DB, days: int = 60, limit: int = 200) -> list[dict]:
+    """Approved, not billed or sent yet: what logistics may still move to another shop."""
+    since = (clock.now() - timedelta(days=days)).isoformat(timespec="seconds")
+    rows = db.q(_APPROVED_LINE + f"AND ri.status = 'ORDERED' AND s.decided_at >= ? AND NOT {_BOUGHT} "
+                "ORDER BY s.decided_at DESC, sl.id DESC LIMIT ?", (since, limit))
+    return sorted((dict(r) for r in rows), key=lambda r: (r["site_code"], r["id"]))
+
+
+def line_bought(db: DB, line_id: int) -> bool:
+    r = db.one(f"SELECT {_BOUGHT} AS b FROM slip_lines sl WHERE sl.id = ?", (line_id,))
+    return bool(r and r["b"])
+
+
+def pending_change(db: DB, line_id: int, exclude_slip: int | None = None) -> str | None:
+    """The list (draft or waiting for approval) that already changes this approved line."""
+    r = db.one("SELECT s.slip_no FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id WHERE sl.replaces_line_id = ? "
+               "AND s.status IN ('DRAFT','PENDING') AND s.id != ? ORDER BY s.id DESC LIMIT 1", (line_id, exclude_slip or -1))
+    return r["slip_no"] if r else None
+
+
+def waiting_slip_for_item(db: DB, req_item_id: int) -> str | None:
+    r = db.one("SELECT s.slip_no FROM slip_lines sl JOIN slips s ON s.id = sl.slip_id WHERE sl.req_item_id = ? "
+               "AND s.status = 'PENDING' ORDER BY s.id DESC LIMIT 1", (req_item_id,))
+    return r["slip_no"] if r else None
 
 
 def load_dispatch(db: DB, dispatch_id: int) -> Dispatch | None:

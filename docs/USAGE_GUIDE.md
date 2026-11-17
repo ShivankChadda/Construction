@@ -53,6 +53,15 @@ When it arrives:
 - `edit PS-42` — pull a list back to change it.
 - **After approval you get one signed challan per shop.** Show each at its shop (on the phone or printed).
   The shop supplies only what is on its challan, on credit. The shopkeeper can scan the QR to check it.
+- **The shop doesn't have an approved item? — दुकान में आइटम नहीं मिला?** Say where you'll get it instead, by voice or text:
+  ```
+  D1 Ganga Agency mein nahi hai, Navjeevan se lena hoga     (another shop — goes to Dad for approval again)
+  D1 kahin nahi mila                                          (nowhere — back on the open list, no approval needed)
+  D4 ab zarurat nahi                                          (not needed — closed, no approval needed)
+  ```
+  A new shop makes a small new list (e.g. PS-43, marked *Change to approved list PS-42-1*). Tap **📤 Send for approval**.
+  When Dad approves, you get a challan for the new shop, and the item comes **off the old shop's challan**: don't buy it
+  there. If Dad says no, it stays where it was. Already billed or sent? Then it can't be changed.
 - **After buying, send a 📷 photo of the shop's bill** (caption "bill", or the bot asks). The bot reads it and checks it
   against the challan: items not approved, more than approved, rate higher than last time, total not matching.
   Tap **✅ Record bill** — it goes to Dad and accounts, and the rates are saved for next time.
@@ -84,6 +93,12 @@ Each purchase list comes as a **PDF + a summary + buttons**, grouped by site. Ev
 
 When you approve, the list and **one challan per shop** are issued with **your name, initials stamp, date and a verification code**. Shops supply on credit only against these challans. Without your "yes", nothing carries your name.
 
+If a shop doesn't have an approved item, Abbas sends a small new list marked **🔁 Change to approved list PS-42-1**, showing the
+old shop and the new one. Reply as usual. If you approve, the item moves to the new shop's challan and comes off the old one.
+If you say no, it stays as you first approved it. If he can't get it anywhere, or it isn't needed any more, it comes off
+the challan without your approval, and you get a message saying so.
+कोई दुकान में आइटम न मिले तो अब्बास नई दुकान की छोटी लिस्ट भेजेंगे — "हाँ" कहने पर ही आइटम नई दुकान से आएगा।
+
 When Abbas records a shop's bill, you get it **checked against your approval**: anything extra, more than approved, or a higher rate is marked ⚠️. Krishna and Himani (accounts) get the same copy.
 
 In the group you no longer need to write "Abbas do it" for every item. Approve the slip instead; that is where you see the price.
@@ -98,3 +113,5 @@ In the group you no longer need to write "Abbas do it" for every item. Approve t
 3. Abbas: forward a group requirement to the bot; type `list`; send a voice note saying which shop for each item, one "nahi mila", one "already sent" → Send.
 4. Dad: open the PDF (shop and last rate per line), reply "haan", then show the signed challans with his name and stamp.
 5. Abbas: show a challan at the shop; after buying, send the photo of the bill → Record bill. Dad and accounts get it checked.
+6. Abbas: one shop doesn't have an item — voice note "D1 Ganga mein nahi, Navjeevan se lena hoga" → Send. Dad says "haan";
+   Abbas gets the new challan, and the old shop's QR page shows that item as cancelled.

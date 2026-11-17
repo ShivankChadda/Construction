@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from . import clock
 from .fmt import inr, qty
-from .models import DROP, PENDING_STOCK, SENT, Requisition, Slip, SlipLine
+from .models import AFTER_APPROVAL, DROP, MOVED, PENDING_STOCK, SENT, Requisition, Slip, SlipLine
 from .roster import Person, Roster
 
 NOTE_WORDS = {PENDING_STOCK: "not available", SENT: "already sent", DROP: "not needed"}
@@ -24,7 +24,9 @@ def note_line(n: SlipLine) -> str:
     ref = f"{n.ref} " if n.ref else ""
     tail = {PENDING_STOCK: " _(stays pending)_", SENT: "", DROP: ""}[n.action]
     remark = f": {n.remark}" if n.remark else ""
-    return f"{NOTE_ICONS[n.action]} {ref}{n.name} — {NOTE_WORDS[n.action]}{remark}{tail}"
+    off = (f" _(taken off {n.replaces_challan_no or n.replaces_slip_no}, {n.replaces_vendor})_"
+           if n.replaces_slip_no else "")
+    return f"{NOTE_ICONS[n.action]} {ref}{n.name} — {NOTE_WORDS[n.action]}{remark}{tail}{off}"
 
 
 def notes_summary(notes: list[SlipLine]) -> str:
@@ -82,7 +84,9 @@ def _line_text(l: SlipLine, roster: Roster, show_status: bool = False) -> list[s
         status = " ❌"
     elif show_status and l.status == "APPROVED":
         status = " ✅"
-    name = f"~{l.name}~" if show_status and l.status == "REJECTED" else l.name
+    elif show_status and l.status in AFTER_APPROVAL:
+        status = f" ↪️ moved to {l.replaced_by_slip_no}" if l.status == MOVED else " ✖️ taken off after approval"
+    name = f"~{l.name}~" if show_status and l.status in ("REJECTED", *AFTER_APPROVAL) else l.name
     ref = f" ({l.ref})" if l.ref else ""
     out = [f"*{l.line_no}.* {name}{ref} — {qty(l.qty)} {l.unit}{status}"]
     meta = [f"🏪 {l.vendor}"]
@@ -115,6 +119,8 @@ def slip_text(slip: Slip, roster: Roster, title: str, show_status: bool = False)
     head = f"🧾 *{slip.slip_no}* — {title}"
     sub = f"_{n_items(len(slip.lines))} to buy · {_n(len(sites), 'site')} · by {slip.prepared_by_name}_"
     lines = [head, sub]
+    if slip.amends():
+        lines.append(f"🔁 *Change to approved list {', '.join(slip.amends())}* — needs approval again")
     for site in sites:
         lines += ["", f"📍 *{roster.site_name(site).upper()}*"]
         for l in slip.lines_for_site(site):
@@ -168,7 +174,7 @@ def bill_text(bill, challan, warnings: list[str], roster: Roster, recorded_by: s
     lines += ["", " · ".join(tot)]
     if challan:
         billed = {l.slip_line_id for l in bill.lines if l.slip_line_id}
-        missing = [l for l in challan.lines if l.id not in billed]
+        missing = [l for l in challan.lines if l.id not in billed and l.status not in AFTER_APPROVAL]
         if missing:
             lines.append("_Not on this bill: " + ", ".join(f"{l.name} {qty(l.qty)} {l.unit}" for l in missing) + "_")
     n_flags = sum(len(l.flags) for l in bill.lines) + len(warnings)
@@ -262,6 +268,8 @@ def help_text(p: Person, roster: Roster) -> str:
             "• Say which shop for each item, by voice or text: _N17 N18 Om Traders_, _N19 nahi mila_,\n"
             "  _N20 already sent_, _N21 not needed_. Prices are optional.\n"
             "• Then tap 📤 *Send for approval*. After approval you get one signed challan per shop\n"
+            "• Shop didn't have an approved item? Say the new shop: _D1 Navjeevan_ — it goes for approval\n"
+            "  again. _D1 not available_ takes it off the challan and back on the open list\n"
             "• After buying, send a 📷 *photo of the shop's bill* — I check it against the challan\n"
             "• *edit PS-42* — pull back a slip to change it\n"
             "• *dispatch PS-42 Nicobar MV Campbell Bay* — send a slip's items to a site\n"

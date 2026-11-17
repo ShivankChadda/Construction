@@ -30,8 +30,8 @@ from .fmt import inr, lakh, qty
 from .google_sync import GoogleSync, enqueue, process_queue
 from .llm import (DISPATCH_WORDS, UNITS, ParsedDispatchItem, ParsedItem, ParsedSlipLine, ParseError, Parser, ReqParse,
                   norm_key, norm_unit)
-from .models import (APPROVED, BILLED, BUY, CANCELLED, DRAFT, DROP, PART_BILLED, PARTIAL, PENDING, PENDING_STOCK,
-                     REJECTED, SENT, Challan, Flag, Slip)
+from .models import (AFTER_APPROVAL, APPROVED, BILLED, BUY, CANCELLED, DRAFT, DROP, LINE_CANCELLED, MOVED, OPEN,
+                     PART_BILLED, PARTIAL, PENDING, PENDING_STOCK, REJECTED, SENT, Challan, Flag, Slip)
 from .pdf import render_challan_pdf, render_requirements_pdf, render_slip_pdf
 from .rates import RateBook
 from .rates import record as record_rate
@@ -687,6 +687,9 @@ class Bot:
         draft_id = store.draft_slip_id(self.db, p.phone)
         draft = store.load_slip(self.db, draft_id) if draft_id else None
         open_items = store.open_items(self.db)
+        # Approved but not bought yet: the shop may not have it ("D1 Ganga mein nahi, Navjeevan se").
+        approved = [a for a in store.approved_unbought(self.db) if a["ref"]]
+        approved_refs = {a["ref"] for a in approved}
         current = None
         if draft:
             current = [ParsedSlipLine(l.ref or "", l.site_code, l.name, l.item_key, l.qty, l.unit, l.vendor, l.rate,
@@ -694,16 +697,16 @@ class Bot:
             # items already on this draft are still "open" for the parser's purposes
             open_refs = {it["ref"] for it in open_items}
             for l in draft.lines + draft.notes:
-                if l.ref and l.ref not in open_refs:
+                if l.ref and l.ref not in open_refs and l.ref not in approved_refs:
                     it = store.item_by_ref(self.db, l.ref)
                     if it:
                         open_items.append(it)
-        if not open_items and not current and not re.search(r"\d", text):
+        if not open_items and not approved and not current and not re.search(r"\d", text):
             return self._text(p, "There are no open requirements right now, and that didn't look like a purchase line.\n"
                                  "Send *help* to see what I can do.")
         vendors = list(dict.fromkeys([v.name for v in self.roster.vendors] + store.recent_vendor_names(self.db)))
         parsed = self.parser.parse_slip(text, open_items, vendors, [(s.code, s.name) for s in self.roster.sites],
-                                        store.known_item_keys(self.db), current)
+                                        store.known_item_keys(self.db), current, approved=approved)
         lines, notes, problems = self._validate_slip_lines(parsed.lines, draft_id)
         problems += [f"Not understood: \"{u}\"" for u in parsed.unclear[:5]]
         if not lines and not notes:
@@ -729,11 +732,12 @@ class Bot:
             for n, l in enumerate(lines + notes, start=1):
                 self.db.run(
                     "INSERT INTO slip_lines(slip_id, line_no, site_code, req_item_id, name, item_key, qty, unit, vendor, rate, "
-                    "amount, requested_qty, last_rate, last_rate_date, last_vendor, last_rate_name, flags, action, remark) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "amount, requested_qty, last_rate, last_rate_date, last_vendor, last_rate_name, flags, action, remark, "
+                    "replaces_line_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (draft_id, n if l["action"] == BUY else 0, l["site_code"], l["req_item_id"], l["name"], l["item_key"],
                      l["qty"], l["unit"], l["vendor"], l["rate"], l["amount"], l["requested_qty"], l["last_rate"],
-                     l["last_rate_date"], l["last_vendor"], l["last_rate_name"], l["flags"], l["action"], l["remark"]),
+                     l["last_rate_date"], l["last_vendor"], l["last_rate_name"], l["flags"], l["action"], l["remark"],
+                     l.get("replaces_line_id")),
                 )
         slip = store.load_slip(self.db, draft_id)
         self.db.audit(p.phone, "slip_draft", slip.slip_no, lines=len(slip.lines), notes=len(slip.notes), est=slip.total)
@@ -760,12 +764,14 @@ class Bot:
         known_vendors = store.known_vendor_names(self.db)
         for pl in parsed:
             item = None
+            old = None  # the approved line this changes, when the item was already approved for a shop
             if pl.ref:
                 item = store.item_by_ref(self.db, pl.ref)
-                in_this_draft = item and slip_id and self.db.one(
-                    "SELECT 1 FROM slip_lines WHERE slip_id = ? AND req_item_id = ?", (slip_id, item["id"]))
-                if not item or item["req_status"] != "SUBMITTED" or (item["status"] != "OPEN" and not in_this_draft):
-                    problems.append(f"{pl.ref} is not an open requirement (see *list*)")
+                if item and item["status"] == "ORDERED":
+                    old = store.approved_line(self.db, item["id"])
+                problem = self._ref_problem(pl.ref, item, old, slip_id)
+                if problem:
+                    problems.append(problem)
                     continue
                 if pl.ref in seen_refs:
                     problems.append(f"{pl.ref} appears twice — kept the first")
@@ -777,22 +783,24 @@ class Bot:
                     problems.append(f"\"{pl.name}\" isn't an open requirement, so it can't be marked "
                                     f"{render.NOTE_WORDS[action]}")
                     continue
+                src = old or item
                 notes.append({
-                    "site_code": item["site_code"], "req_item_id": item["id"], "name": item["name"],
-                    "item_key": item["item_key"], "qty": item["qty"], "unit": item["unit"], "vendor": "", "rate": 0,
+                    "site_code": item["site_code"], "req_item_id": item["id"], "name": src["name"],
+                    "item_key": item["item_key"], "qty": src["qty"], "unit": src["unit"], "vendor": "", "rate": 0,
                     "amount": 0, "requested_qty": item["qty"], "last_rate": None, "last_rate_date": None,
                     "last_vendor": None, "last_rate_name": None, "flags": "[]", "action": action,
-                    "remark": pl.remark.strip(),
+                    "remark": pl.remark.strip(), "replaces_line_id": old["id"] if old else None,
                 })
                 continue
             site_code = item["site_code"] if item else pl.site_code
             if not self.roster.site(site_code):
                 problems.append(f"Which site is \"{pl.name}\" for? Add the site name, e.g. \"{pl.name} Nicobar ...\"")
                 continue
-            name = pl.name or (item["name"] if item else "")
-            unit = norm_unit(pl.unit or (item["unit"] if item else "nos"))
+            src = old or item
+            name = pl.name or (src["name"] if src else "")
+            unit = norm_unit(pl.unit or (src["unit"] if src else "nos"))
             key = (item["item_key"] if item and (not pl.item_key or pl.item_key == item["item_key"]) else pl.item_key) or norm_key(name)
-            q = pl.qty or (item["qty"] if item else 0)
+            q = pl.qty or (src["qty"] if src else 0)
             if q <= 0:
                 problems.append(f"Quantity missing for \"{name}\"")
                 continue
@@ -802,33 +810,45 @@ class Bot:
             rate = pl.rate if pl.rate > 0 else (pl.lump_sum / q if pl.lump_sum > 0 else 0)
             vendor_match = self.roster.match_vendor(pl.vendor)
             vendor = vendor_match.name if vendor_match else pl.vendor.strip()
+            if old and _same_shop(vendor, old["vendor"]) and abs(q - old["qty"]) < 1e-9 and rate in (0, old["rate"]):
+                problems.append(f"{pl.ref} {old['name']} is already approved from {old['vendor']} "
+                                f"({old['challan_no'] or old['slip_no']}) — nothing changed")
+                continue
             out.append({
                 "site_code": site_code, "req_item_id": item["id"] if item else None, "name": name, "item_key": key,
                 "qty": q, "unit": unit, "vendor": vendor, "rate": round(rate, 2), "amount": round(q * rate, 2),
                 "requested_qty": item["qty"] if item else None, "action": BUY, "remark": pl.remark.strip(),
-                "_item": item, "_known_vendor": bool(vendor_match) or vendor.lower() in known_vendors,
+                "replaces_line_id": old["id"] if old else None,
+                "_item": item, "_old": old, "_known_vendor": bool(vendor_match) or vendor.lower() in known_vendors,
             })
         self._attach_last_rates(out, slip_id)
         for l in out:
             item = l.pop("_item")
+            old = l.pop("_old")
             flags: list[Flag] = []
+            if old:  # the owner approved this from another shop (or another qty): he approves the change
+                flags.append(Flag("CHANGED", f"Change to {old['challan_no'] or old['slip_no']}: was {qty(old['qty'])} "
+                                             f"{old['unit']} from {old['vendor']}, approved "
+                                             f"{clock.fmt(old['decided_at'], with_time=False)}"))
             if l["rate"] > 0 and l["last_rate"] and l["rate"] > l["last_rate"] * (1 + self.s.price_alert_pct / 100):
                 pct = (l["rate"] / l["last_rate"] - 1) * 100
                 flags.append(Flag("PRICE_UP", f"Rate {inr(l['rate'])} is {pct:.1f}% above last {inr(l['last_rate'])} "
                                               f"({l['last_vendor']}, {clock.fmt(l['last_rate_date'], with_time=False)})"))
-            if item and l["unit"] == norm_unit(item["unit"]) and l["qty"] > item["qty"] + 1e-9:
+            if old and l["unit"] == norm_unit(old["unit"]) and l["qty"] > old["qty"] + 1e-9:
+                flags.append(Flag("QTY_OVER", f"Buying {qty(l['qty'])} {l['unit']}; {qty(old['qty'])} approved on {old['slip_no']}"))
+            elif item and l["unit"] == norm_unit(item["unit"]) and l["qty"] > item["qty"] + 1e-9:
                 flags.append(Flag("QTY_OVER", f"Buying {qty(l['qty'])} {l['unit']}; site asked for {qty(item['qty'])}"))
             if not item:
                 flags.append(Flag("NOT_REQUESTED", "Not requested by any site engineer"))
             if not l.pop("_known_vendor"):
                 flags.append(Flag("NEW_VENDOR", f"New shop \"{l['vendor']}\" — not bought from before"))
             recent = store.recent_purchase(self.db, l["item_key"], l["site_code"], self.s.recent_purchase_days,
-                                           exclude_slip=slip_id)
+                                           exclude_slip=slip_id, exclude_line=old["id"] if old else None)
             if recent:
                 flags.append(Flag("RECENT_PURCHASE", f"Already bought {qty(recent['qty'])} {recent['unit']} for "
                                                      f"{self.roster.site_name(l['site_code'])} on "
                                                      f"{clock.fmt(recent['decided_at'], with_time=False)} ({recent['slip_no']})"))
-            if item and item["by_logistics"]:
+            if item and item["by_logistics"] and not old:  # already shown when it was first approved
                 flags.append(Flag("ENTERED_BY_LOGISTICS", "Requirement was entered by logistics, not by the site engineer"))
             l["flags"] = json.dumps([f.to_dict() for f in flags], ensure_ascii=False)
         # group lines by site so the list reads site by site
@@ -836,6 +856,29 @@ class Bot:
         out.sort(key=lambda l: order.get(l["site_code"], 99))
         notes.sort(key=lambda l: order.get(l["site_code"], 99))
         return out, notes, problems
+
+    def _ref_problem(self, ref: str, item: dict | None, old: dict | None, slip_id: int | None) -> str:
+        """Why a ref can't go on this list, or "" when it can: an open requirement, or one approved for a shop
+        that hasn't been bought yet (its shop can be changed, which needs approval again)."""
+        if not item:
+            return f"{ref} is not an open requirement (see *list*)"
+        if old is not None:
+            if old["bought"]:
+                return (f"{ref} {old['name']} was already billed or sent on {old['challan_no'] or old['slip_no']} "
+                        f"({old['vendor']}) — it can't be changed now")
+            other = store.pending_change(self.db, old["id"], exclude_slip=slip_id)
+            if other:
+                return f"{ref} {old['name']} already has a change on {other} — send *edit {other}* to change it"
+            return ""
+        in_this_draft = slip_id and self.db.one(
+            "SELECT 1 FROM slip_lines WHERE slip_id = ? AND req_item_id = ?", (slip_id, item["id"]))
+        if item["req_status"] == "SUBMITTED" and (item["status"] == "OPEN" or in_this_draft):
+            return ""
+        if item["status"] == "IN_SLIP":
+            waiting = store.waiting_slip_for_item(self.db, item["id"])
+            if waiting:
+                return f"{ref} {item['name']} is on {waiting}, waiting for approval — send *edit {waiting}* to change it"
+        return f"{ref} is not an open requirement (see *list*)"
 
     def _attach_last_rates(self, lines: list[dict], slip_id: int | None) -> None:
         """Fill last_rate / last_vendor / last_rate_date / last_rate_name for each purchase line.
@@ -903,13 +946,19 @@ class Bot:
             self._close_finished_requisitions(slip)
             self.db.audit(p.phone, "plan_recorded", slip.slip_no, notes=len(slip.notes))
             self._tell_sites_about_notes(p, slip)
-            return self._text(p, f"📝 Recorded: {render.notes_summary(slip.notes)}. Nothing needed approval.")
+            removed = self._taken_off_text(slip)
+            if removed:  # less to buy needs no approval, but the approver should know his approval shrank
+                for a in self.roster.by_role("approver"):
+                    self._notify(a, f"{p.name} took items off approved lists", lambda a=a: self._text(
+                        a, f"ℹ️ *{p.name}* took these off approved lists (no approval needed):\n{removed}"))
+            return self._text(p, f"📝 Recorded: {render.notes_summary(slip.notes)}. Nothing needed approval."
+                              + (f"\n\nTaken off the challans — don't buy these there:\n{removed}" if removed else ""))
         version = slip.version + (1 if slip.submitted_at else 0)
         with self.db.transaction():
             self.db.run("UPDATE slips SET status = 'PENDING', version = ?, submitted_at = ?, updated_at = ?, "
                         "reminded_at = NULL, reminder_count = 0 WHERE id = ?", (version, now, now, slip.id))
             for l in slip.lines:
-                if l.req_item_id:
+                if l.req_item_id and not l.replaces_line_id:  # a change keeps the item approved until decided
                     self.db.run("UPDATE req_items SET status = 'IN_SLIP' WHERE id = ?", (l.req_item_id,))
             self._apply_notes(slip)
         self._close_finished_requisitions(slip)
@@ -923,21 +972,70 @@ class Bot:
         for a in approvers:
             self._send_approval_card(a, slip, str(path))
         self._tell_sites_about_notes(p, slip)
+        removed = self._taken_off_text(slip)
         self._text(p, f"📤 *{slip.slip_no}* ({render.n_items(len(slip.lines))}, est. {inr(slip.total)}) sent to "
-                      f"{', '.join(a.name for a in approvers)} for approval.")
+                      f"{', '.join(a.name for a in approvers)} for approval."
+                      + (f"\n\nTaken off the challans — don't buy these there:\n{removed}" if removed else ""))
 
     def _apply_notes(self, slip: Slip) -> None:
-        """Not available: stays open with the reason. Already sent / not needed: closed with the reason."""
+        """Not available: stays open with the reason. Already sent / not needed: closed with the reason.
+        On an item that was already approved, the note also takes it off that shop's challan."""
         day = clock.fmt(clock.now_iso(), with_time=False)
         for n in slip.notes:
             if not n.req_item_id:
                 continue
+            if n.replaces_line_id and not self._supersede(n.replaces_line_id, LINE_CANCELLED, n.id):
+                continue  # billed or sent since the draft was made: it stays bought
             if n.action == PENDING_STOCK:
                 note = f"Not available ({day})" + (f": {n.remark}" if n.remark else "")
                 self.db.run("UPDATE req_items SET status = 'OPEN', note = ? WHERE id = ?", (note, n.req_item_id))
+                self.db.run("UPDATE requisitions SET status = 'SUBMITTED' WHERE status = 'CLOSED' AND id = "
+                            "(SELECT requisition_id FROM req_items WHERE id = ?)", (n.req_item_id,))
             else:
                 status = "SENT" if n.action == SENT else "DROPPED"
                 self.db.run("UPDATE req_items SET status = ?, note = ? WHERE id = ?", (status, n.remark, n.req_item_id))
+
+    def _taken_off_text(self, slip: Slip) -> str:
+        """Approved items this list takes off their challan (not available anywhere, not needed, already sent)."""
+        return "\n".join(f"✖️ {n.ref + ' ' if n.ref else ''}{n.name} — {n.replaces_challan_no or n.replaces_slip_no} "
+                         f"{n.replaces_vendor}" for n in slip.notes if n.replaces_line_id)
+
+    def _supersede(self, line_id: int, status: str, by_line_id: int) -> bool:
+        """Take an approved line off its challan: MOVED to another shop, or CANCELLED. Its approval record and
+        signature stay as they were; the challan's QR page shows the line as not to be supplied."""
+        row = self.db.one("SELECT status, challan_id, slip_id FROM slip_lines WHERE id = ?", (line_id,))
+        if not row or row["status"] != "APPROVED" or store.line_bought(self.db, line_id):
+            return False
+        self.db.run("UPDATE slip_lines SET status = ?, replaced_by = ? WHERE id = ?", (status, by_line_id, line_id))
+        self._settle_challan(row["challan_id"])
+        enqueue(self.db, "slip", row["slip_id"])
+        return True
+
+    def _restore(self, line_id: int, by_line_id: int) -> None:
+        """Undo _supersede when the list that cancelled the line is pulled back."""
+        row = self.db.one("SELECT status, challan_id, slip_id, replaced_by FROM slip_lines WHERE id = ?", (line_id,))
+        if row and row["status"] in AFTER_APPROVAL and row["replaced_by"] == by_line_id:
+            self.db.run("UPDATE slip_lines SET status = 'APPROVED', replaced_by = NULL WHERE id = ?", (line_id,))
+            self._settle_challan(row["challan_id"])
+            enqueue(self.db, "slip", row["slip_id"])
+
+    def _settle_challan(self, challan_id: int | None, billed_at: str | None = None) -> None:
+        """Challan status from what is still to be bought on it: lines moved or cancelled after approval don't count."""
+        if not challan_id:
+            return
+        ch = store.load_challan(self.db, challan_id)
+        live = [l for l in ch.lines if l.status not in AFTER_APPROVAL]
+        billed = [store.billed_qty(self.db, l.id) for l in live]
+        if not live:
+            status = CANCELLED
+        elif all(b >= l.qty - 1e-9 for b, l in zip(billed, live)):
+            status = BILLED
+        elif billed_at or any(billed) or ch.status == PART_BILLED:
+            status = PART_BILLED
+        else:
+            status = OPEN
+        self.db.run("UPDATE challans SET status = ?, billed_at = COALESCE(?, billed_at) WHERE id = ?",
+                    (status, billed_at, challan_id))
 
     def _tell_sites_about_notes(self, p: Person, slip: Slip) -> None:
         for site in dict.fromkeys(n.site_code for n in slip.notes):
@@ -975,13 +1073,19 @@ class Bot:
         with self.db.transaction():
             self.db.run("UPDATE slips SET status = 'DRAFT', updated_at = ? WHERE id = ?", (clock.now_iso(), slip.id))
             for l in slip.lines:
-                if l.req_item_id:
+                if l.req_item_id and not l.replaces_line_id:
                     self.db.run("UPDATE req_items SET status = 'OPEN' WHERE id = ?", (l.req_item_id,))
             for n in slip.notes:  # applied again when the revised list is sent
-                if n.req_item_id:
-                    self.db.run("UPDATE req_items SET status = 'OPEN', note = '' WHERE id = ?", (n.req_item_id,))
-                    self.db.run("UPDATE requisitions SET status = 'SUBMITTED' WHERE id = "
-                                "(SELECT requisition_id FROM req_items WHERE id = ?)", (n.req_item_id,))
+                if not n.req_item_id:
+                    continue
+                if n.replaces_line_id:  # back on its shop's challan, approved as before
+                    self._restore(n.replaces_line_id, n.id)
+                    self.db.run("UPDATE req_items SET status = 'ORDERED', note = '' WHERE id = ?", (n.req_item_id,))
+                    continue
+                self.db.run("UPDATE req_items SET status = 'OPEN', note = '' WHERE id = ?", (n.req_item_id,))
+                self.db.run("UPDATE requisitions SET status = 'SUBMITTED' WHERE id = "
+                            "(SELECT requisition_id FROM req_items WHERE id = ?)", (n.req_item_id,))
+        self._close_finished_requisitions(slip)
         self.db.audit(p.phone, "slip_withdraw", slip.slip_no)
         for a in self.roster.by_role("approver"):
             self._notify(a, f"{slip.slip_no} withdrawn by {p.name}",
@@ -1039,7 +1143,7 @@ class Bot:
             self.db.run("UPDATE bills SET status = 'CANCELLED' WHERE id = ?", (draft_id,))
         challans = store.open_challans(self.db)
         listing = [{"id": l.id, "name": l.name, "qty": l.qty, "unit": l.unit, "vendor": c.vendor,
-                    "challan_no": c.challan_no} for c in challans for l in c.lines]
+                    "challan_no": c.challan_no} for c in challans for l in c.lines if l.status not in AFTER_APPROVAL]
         parsed = self.parser.parse_bill(content.text, images, listing)
         if not parsed.lines:
             why = ("\n\nNot readable: " + "; ".join(f"\"{u}\"" for u in parsed.unclear[:3])) if parsed.unclear else ""
@@ -1096,6 +1200,9 @@ class Bot:
         if line is None:
             where = f"challan {challan.challan_no}" if challan else "any approved challan"
             return [Flag("NOT_APPROVED", f"Not on {where} — was not approved")]
+        if line.status in AFTER_APPROVAL:
+            return [Flag("NOT_APPROVED", f"Taken off {challan.challan_no if challan else 'the challan'} after approval "
+                                         f"({'moved to another shop' if line.status == MOVED else 'cancelled'}) — not to be bought here")]
         flags: list[Flag] = []
         already = store.billed_qty(self.db, line.id) + claimed.get(line.id, 0)
         claimed[line.id] = claimed.get(line.id, 0) + bl.qty
@@ -1146,9 +1253,7 @@ class Bot:
         with self.db.transaction():
             self.db.run("UPDATE bills SET status = 'RECORDED', recorded_at = ? WHERE id = ?", (now, bill.id))
             if challan:
-                done = all(store.billed_qty(self.db, l.id) >= l.qty - 1e-9 for l in challan.lines)
-                self.db.run("UPDATE challans SET status = ?, billed_at = ? WHERE id = ?",
-                            (BILLED if done else PART_BILLED, now, challan.id))
+                self._settle_challan(challan.id, billed_at=now)
         ch_lines = {l.id: l for l in challan.lines} if challan else {}
         day = bill.bill_date or clock.now().date().isoformat()
         for bl in bill.lines:
@@ -1172,7 +1277,8 @@ class Bot:
             self._notify(o, f"Shop bill {bill.bill_ref} recorded by {p.name}", send)
         msg = f"✅ *{bill.bill_ref}* recorded and sent to {', '.join(o.name for o in office) or 'the office'}."
         if challan and challan.status == PART_BILLED:
-            open_ = [l for l in challan.lines if store.billed_qty(self.db, l.id) < l.qty - 1e-9]
+            open_ = [l for l in challan.lines
+                     if l.status not in AFTER_APPROVAL and store.billed_qty(self.db, l.id) < l.qty - 1e-9]
             msg += f"\n\nStill open on {challan.challan_no}: " + ", ".join(f"{l.name} {qty(l.qty)} {l.unit}" for l in open_)
         if challan:
             msg += f"\n\nWhen loaded, send *dispatch {challan.slip_no} <site> <vessel/vehicle>*."
@@ -1292,7 +1398,7 @@ class Bot:
             for l in slip.lines:
                 ok = l.line_no in approve
                 self.db.run("UPDATE slip_lines SET status = ? WHERE id = ?", ("APPROVED" if ok else "REJECTED", l.id))
-                if l.req_item_id:
+                if l.req_item_id and not l.replaces_line_id:  # a refused change leaves the earlier approval standing
                     self.db.run("UPDATE req_items SET status = ? WHERE id = ?", ("ORDERED" if ok else "REJECTED", l.req_item_id))
             self.db.run("UPDATE slips SET status = ?, decided_at = ?, decided_by_phone = ?, decided_by_name = ?, "
                         "decision_ref = ?, decision_text = ?, updated_at = ? WHERE id = ?",
@@ -1306,11 +1412,31 @@ class Bot:
         render_slip_pdf(slip, self.roster, path, verify_url=self.verify_url(slip) if slip.verify_code else "")
         self.db.run("UPDATE slips SET pdf_path = ? WHERE id = ?", (str(path), slip.id))
         challans = self._make_challans(slip) if status != REJECTED else []
+        changes = self._apply_changes(slip, challans)
         self._close_finished_requisitions(slip)
         self.db.audit(p.phone, f"slip_{status.lower()}", slip.slip_no, approved_lines=sorted(approve),
                       approved_est=slip.approved_total, challans=[c.challan_no for c in challans], reply=text, wamid=ref)
         enqueue(self.db, "slip", slip.id)
-        self._announce_decision(p, slip, str(path), challans)
+        self._announce_decision(p, slip, str(path), challans, changes)
+
+    def _apply_changes(self, slip: Slip, challans: list[Challan]) -> list[str]:
+        """Approved shop changes take the item off the earlier shop's challan; refused ones leave it there."""
+        new_challan = {l.id: c.challan_no for c in challans for l in c.lines}
+        out = []
+        for l in slip.lines:
+            if not l.replaces_line_id:
+                continue
+            item = f"{l.ref + ' ' if l.ref else ''}{l.name}"
+            was = f"{l.replaces_challan_no or l.replaces_slip_no} ({l.replaces_vendor})"
+            if l.status != "APPROVED":
+                out.append(f"↩️ {item} — change not approved; stays on {was}")
+            elif self._supersede(l.replaces_line_id, MOVED, l.id):
+                new = f" ({new_challan[l.id]})" if l.id in new_challan else ""
+                out.append(f"↪️ {item} — now from *{l.vendor}*{new}; taken off {was}, don't buy it there")
+            else:
+                out.append(f"⚠️ {item} — already billed or sent on {was}, so it is still on that challan too. "
+                           "Check before buying it twice.")
+        return out
 
     def _make_challans(self, slip: Slip) -> list[Challan]:
         """One signed challan per shop, listing only that shop's approved items."""
@@ -1366,8 +1492,9 @@ class Bot:
             "decided_at": slip.decided_at,
             "decision_ref": slip.decision_ref,
             "lines": [{"n": l.line_no, "site": l.site_code, "item": l.name, "qty": l.qty, "unit": l.unit,
-                       "vendor": l.vendor, "rate": l.rate, "amount": l.amount, "status": l.status} for l in slip.lines],
-            "approved_total": round(sum(l.amount for l in slip.lines if l.status == "APPROVED"), 2),
+                       "vendor": l.vendor, "rate": l.rate, "amount": l.amount, "status": _signed_status(l)}
+                      for l in slip.lines],
+            "approved_total": round(sum(l.amount for l in slip.lines if _signed_status(l) == "APPROVED"), 2),
         }
 
     def verify_url(self, doc: Slip | Challan) -> str:
@@ -1385,7 +1512,8 @@ class Bot:
                 self.db.run("UPDATE requisitions SET status = 'CLOSED', updated_at = ? WHERE id = ?", (clock.now_iso(), rid))
             enqueue(self.db, "req", rid)
 
-    def _announce_decision(self, p: Person, slip: Slip, pdf_path: str, challans: list[Challan] | None = None) -> None:
+    def _announce_decision(self, p: Person, slip: Slip, pdf_path: str, challans: list[Challan] | None = None,
+                           changes: list[str] | None = None) -> None:
         challans = challans or []
         rejected = [l for l in slip.lines if l.status == "REJECTED"]
         est = f" — est. {inr(slip.approved_total)}" if slip.approved_total else ""
@@ -1400,13 +1528,16 @@ class Bot:
             detail += f"\nReply: \"{slip.decision_text}\""
         if rejected and slip.status == PARTIAL:
             detail += "\n\nNot approved — do *not* buy:\n" + "\n".join(f"❌ {l.line_no}. {l.name} ({l.vendor})" for l in rejected)
+        if changes:
+            detail += "\n\n*Changes to approved lists:*\n" + "\n".join(changes)
         if slip.verify_code:
             detail += f"\n\nVerification code: *{slip.verify_code}*"
         caption = f"{slip.slip_no} — {slip.status.lower()}" + (f" · code {slip.verify_code}" if slip.verify_code else "")
         shops = "\n".join(f"🏪 *{c.challan_no}* {c.vendor} — {render.n_items(len(c.lines))}" for c in challans)
 
         self._text(p, f"Done. {headline}\n" + ("Signed challans have gone to logistics, one per shop." if challans
-                                                 else "Logistics has been told."))
+                                                 else "Logistics has been told.")
+                   + ("\n\n" + "\n".join(changes) if changes else ""))
         self._doc(p, pdf_path, caption)
         for l in self.roster.by_role("logistics"):
             msg = detail
@@ -1425,7 +1556,7 @@ class Bot:
             self._notify(o, f"{slip.slip_no} was {slip.status.lower()}", lambda o=o: (
                 self._text(o, detail), self._doc(o, pdf_path, caption)))
         for site in slip.sites():
-            lines = slip.lines_for_site(site)
+            lines = [l for l in slip.lines_for_site(site) if not l.replaces_line_id]  # a new shop changes nothing for the site
             ok = [l for l in lines if l.status == "APPROVED"]
             no = [l for l in lines if l.status == "REJECTED" and l.req_item_id]
             if not ok and not no:
@@ -1884,6 +2015,11 @@ class Bot:
         for row in self.db.q("SELECT id FROM dispatches WHERE status = 'OPEN' AND reminded_at IS NULL AND created_at <= ?", (due,)):
             self.db.run("UPDATE dispatches SET reminded_at = ? WHERE id = ?", (now.isoformat(timespec="seconds"), row["id"]))
             self._send_receipt_card(store.load_dispatch(self.db, row["id"]))
+
+
+def _signed_status(l) -> str:
+    """The decision a line was signed with: moving or cancelling it later doesn't change what was approved."""
+    return "APPROVED" if l.status in AFTER_APPROVAL else l.status
 
 
 def _mime(path: Path) -> str:

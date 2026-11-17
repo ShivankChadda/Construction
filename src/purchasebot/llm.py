@@ -145,7 +145,8 @@ class Parser(Protocol):
     def parse_requisition(self, text: str, site_name: str, known_items: list[str],
                           current: list[ParsedItem] | None = None, images: list[tuple[bytes, str]] | None = None) -> ReqParse: ...
     def parse_slip(self, text: str, open_items: list[dict], vendors: list[str], sites: list[tuple[str, str]],
-                   known_items: list[str], current: list[ParsedSlipLine] | None = None) -> SlipParse: ...
+                   known_items: list[str], current: list[ParsedSlipLine] | None = None,
+                   approved: list[dict] | None = None) -> SlipParse: ...
     def parse_dispatch(self, text: str, open_lines: list[dict],
                        images: list[tuple[bytes, str]] | None = None) -> DispatchParse: ...
     def parse_receipt(self, text: str, lines: list[dict]) -> list[QtyLine]: ...
@@ -192,6 +193,13 @@ For each line:
 - remark: as described above for PENDING / SENT / DROP; for BUY anything he adds about the purchase ("brand Supreme", "urgent"), else "".
 - unclear: only parts of the note you could not place at all. A PENDING / SENT / DROP item is not unclear - put the reason in remark.
 - note: "" for a new plan.
+
+APPROVED, NOT BOUGHT YET lists items the owner already approved for a shop that has not been bought yet. At the market a shop may not have one ("correction: D1 Ganga Agency mein nahi hai, Navjeevan se lena hoga", "D4 Augadh ke paas nahi mila, Hira se le lenge"). Return a line for such an item only when he changes it, with its ref:
+- BUY with the new shop when he names one. Keep the approved qty and unit unless he states another. remark = why, e.g. "not available at Ganga Agency".
+- PENDING when no shop has it, SENT or DROP as above.
+Do not return approved items he does not mention, and do not return one only to repeat its approved shop.
+
+Questions and requests to the office are not purchase lines and not unclear; ignore them: "please share", "isko share kariye", "approve kar dijiye", "approved hai ki nahi, sir bataiye", "check karke batao".
 
 When CURRENT PLAN is given, the note edits it (change shop, mark an item not available, add or remove lines). Return the complete updated list and summarise the change in note."""
 
@@ -426,7 +434,7 @@ class ClaudeParser:
             unclear=d["unclear"], needed_by=d["needed_by"], urgent=bool(d["urgent"]), note=d["note"],
         )
 
-    def parse_slip(self, text, open_items, vendors, sites, known_items, current=None):
+    def parse_slip(self, text, open_items, vendors, sites, known_items, current=None, approved=None):
         req_lines = "\n".join(
             f"{it['ref']} | site={it['site_code']} | {it['name']} | {it['qty']:g} {it['unit']} | key={it['item_key']}"
             for it in open_items) or "(none)"
@@ -436,6 +444,10 @@ class ClaudeParser:
             f"KNOWN ITEM KEYS: {', '.join(known_items) or '(none)'}",
             f"OPEN REQUIREMENTS:\n{req_lines}",
         ]
+        if approved:
+            parts.append("APPROVED, NOT BOUGHT YET:\n" + "\n".join(
+                f"{it['ref']} | site={it['site_code']} | {it['name']} | {it['qty']:g} {it['unit']} | key={it['item_key']} | "
+                f"approved shop={it['vendor']} | {it.get('challan_no') or it.get('slip_no') or ''}" for it in approved))
         if current:
             parts.append("CURRENT PLAN:\n" + "\n".join(
                 f"{i}. ref={l.ref or '-'} | site={l.site_code} | {l.name} | {l.qty:g} {l.unit} | {l.action} | "
@@ -607,9 +619,10 @@ class RuleParser:
         return ReqParse(items=items, unclear=unclear, urgent=urgent,
                         note="list updated" if current else "")
 
-    def parse_slip(self, text, open_items, vendors, sites, known_items, current=None):
-        """'N1 N2 Om Traders', 'N3-N5 Hira 62', 'N6 not available at Om', 'N7 already sent MV Campbell Bay'."""
-        by_ref = {it["ref"].upper(): it for it in open_items}
+    def parse_slip(self, text, open_items, vendors, sites, known_items, current=None, approved=None):
+        """'N1 N2 Om Traders', 'N3-N5 Hira 62', 'N6 not available at Om', 'N7 already sent MV Campbell Bay'.
+        An approved item named again with another shop ('D1 Navjeevan') is a change of shop."""
+        by_ref = {it["ref"].upper(): it for it in list(approved or []) + list(open_items)}
         lines = list(current or [])
         unclear: list[str] = []
         for raw in [p.strip() for p in re.split(r"[\n;]", text) if p.strip()]:
@@ -631,10 +644,8 @@ class RuleParser:
             else:
                 remark = rest
             for ref in _expand_refs(m.group("refs")):
-                it = by_ref.get(ref)
-                if not it:
-                    unclear.append(f"{ref}: not an open requirement")
-                    continue
+                # An unknown ref is passed on as it is: the workflow says why it can't be used (billed, waiting...).
+                it = by_ref.get(ref) or {"site_code": "", "name": "", "item_key": "", "qty": 0, "unit": ""}
                 lines = [l for l in lines if l.ref != ref]
                 lines.append(ParsedSlipLine(ref=ref, site_code=it["site_code"], name=it["name"], item_key=it["item_key"],
                                             qty=it["qty"], unit=it["unit"], vendor=vendor, rate=rate, action=action,
